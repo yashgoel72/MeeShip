@@ -1,0 +1,187 @@
+<plan_format_specification>
+  <overview>
+    This document defines the exact format that task plans MUST follow for Orchestrator mode parsing.
+    Based on orchestration-planning.md specification.
+  </overview>
+
+  <mandatory_structure>
+    <section name="header">
+      <element># [Feature/Task Name]</element>
+      <description>Clear, descriptive title using H1 markdown</description>
+    </section>
+
+    <section name="objective">
+      <element>## Objective</element>
+      <description>Single, clear statement of what will be accomplished</description>
+      <example>Implement API rate limiting to prevent abuse and ensure fair usage</example>
+    </section>
+
+    <section name="strategy">
+      <element>## Strategy</element>
+      <description>High-level approach being used</description>
+      <allowed_strategies>
+        <strategy>Sequential Pipeline: Design → Implement → Execute/Debug → Test → Document</strategy>
+        <strategy>Iterative Refinement: Design ⇄ Code → Execute/Debug ⇄ Review</strategy>
+        <strategy>Investigation-Then-Action: Ask → Architect → Code → Execute/Debug → Test</strategy>
+        <strategy>Test-Driven Development: Test → Code → Execute/Debug → Test</strategy>
+        <strategy>Sub-Orchestrator Delegation: Parent delegates complex subtask</strategy>
+      </allowed_strategies>
+    </section>
+
+    <section name="task_breakdown">
+      <element>## Task Breakdown</element>
+      <description>Structured list of tasks with all required metadata</description>
+      <task_structure>
+        <field name="header" required="true">### Task N: [Task Name]</field>
+        <field name="mode" required="true">- **Mode:** [mode-slug]</field>
+        <field name="dependencies" required="true">- **Dependencies:** [None|Task N complete|Tasks N, M complete]</field>
+        <field name="action" required="true">- **Action:** [Specific, actionable instruction]</field>
+        <field name="deliverables" required="true">
+          <description>- **Deliverables:**</description>
+          <format>Bullet list of concrete outputs</format>
+        </field>
+        <field name="success_criteria" required="true">- **Success Criteria:** [Verification method]</field>
+        <field name="handoff" required="false">- **Handoff:** [What next task needs]</field>
+      </task_structure>
+    </section>
+
+    <section name="orchestration_notes">
+      <element>## Orchestration Notes</element>
+      <description>Metadata for Orchestrator parsing and execution</description>
+      <required_fields>
+        <field>- **Complexity Level:** [Simple/Moderate/Complex]</field>
+        <field>- **Estimated Modes:** [Number]</field>
+        <field>- **Sub-Orchestrator Needed:** [Yes/No - if yes, which subtask]</field>
+        <field>- **Memory Bank:** [Required/Optional/Not Needed]</field>
+      </required_fields>
+    </section>
+  </mandatory_structure>
+
+  <task_template>
+    <complete_example><![CDATA[
+### Task 1: Design Rate Limiting Strategy
+- **Mode:** architect
+- **Dependencies:** None
+- **Action:** Design rate limit algorithm, storage mechanism, and response format
+- **Deliverables:**
+  - rate-limit-design.md with algorithm specification
+  - Token bucket vs sliding window decision
+  - Redis schema for rate limit storage
+- **Success Criteria:** Design document complete and reviewed
+- **Handoff:** Task 2 needs algorithm choice and Redis schema from rate-limit-design.md
+    ]]></complete_example>
+  </task_template>
+
+  <metadata_markers>
+    <description>These markers enable Orchestrator parsing</description>
+    <marker name="Mode">
+      <format>**Mode:**</format>
+      <purpose>Tells orchestrator which mode to delegate to</purpose>
+      <values>code, architect, test, debug, ask, etc.</values>
+    </marker>
+    <marker name="Dependencies">
+      <format>**Dependencies:**</format>
+      <purpose>Defines sequencing and blocking relationships</purpose>
+      <values>None, Task N complete, Tasks N, M complete</values>
+    </marker>
+    <marker name="Deliverables">
+      <format>**Deliverables:**</format>
+      <purpose>Concrete outputs orchestrator can verify</purpose>
+      <format_detail>Bullet list below the marker</format_detail>
+    </marker>
+    <marker name="Success Criteria">
+      <format>**Success Criteria:**</format>
+      <purpose>Clear completion conditions</purpose>
+    </marker>
+    <marker name="Handoff">
+      <format>**Handoff:**</format>
+      <purpose>Context transfer requirements</purpose>
+    </marker>
+    <marker name="SUB-ORCHESTRATOR">
+      <format>[SUB-ORCHESTRATOR] in task name</format>
+      <purpose>Marks tasks requiring sub-orchestrator delegation</purpose>
+      <example>### Task 3: [SUB-ORCHESTRATOR] Implement caching layer</example>
+    </marker>
+  </metadata_markers>
+
+  <formatting_rules>
+    <rule priority="critical">
+      <name>Use exact marker format</name>
+      <description>**Mode:** not "Mode:" or "- Mode:"</description>
+      <rationale>Orchestrator parses using exact string matching</rationale>
+    </rule>
+    <rule priority="critical">
+      <name>Sequential numbering</name>
+      <description>Tasks must be numbered 1, 2, 3, etc.</description>
+      <rationale>Defines execution order</rationale>
+    </rule>
+    <rule priority="high">
+      <name>Dependencies must reference existing tasks</name>
+      <description>Task 3 can depend on Task 1, Task 2, but not Task 4</description>
+      <rationale>Prevents circular or forward dependencies</rationale>
+    </rule>
+    <rule priority="high">
+      <name>Deliverables as bullet list</name>
+      <description>Each deliverable on new line with dash</description>
+      <format>
+- **Deliverables:**
+  - Deliverable 1
+  - Deliverable 2
+      </format>
+    </rule>
+  </formatting_rules>
+
+  <validation_checklist>
+    <check>All sections present (Objective, Strategy, Task Breakdown, Orchestration Notes)</check>
+    <check>All tasks have required fields (Mode, Dependencies, Action, Deliverables, Success Criteria)</check>
+    <check>Mode slugs are valid and exact</check>
+    <check>Dependencies only reference prior tasks</check>
+    <check>Deliverables are concrete and verifiable</check>
+    <check>Success criteria are measurable</check>
+    <check>Sub-orchestrator tasks marked with [SUB-ORCHESTRATOR]</check>
+    <check>Formatting uses exact markers (**Mode:**, etc.)</check>
+  </validation_checklist>
+
+  <common_errors>
+    <error>
+      <mistake>Using "- Mode:" instead of "- **Mode:**"</mistake>
+      <impact>Orchestrator cannot parse mode assignment</impact>
+      <fix>Always use bold markdown: **Mode:**</fix>
+    </error>
+    <error>
+      <mistake>Vague deliverables like "Code is working"</mistake>
+      <impact>Cannot verify completion</impact>
+      <fix>Use specific files/outputs: "auth.js with login() and logout() functions"</fix>
+    </error>
+    <error>
+      <mistake>Forward dependencies (Task 2 depends on Task 5)</mistake>
+      <impact>Violates sequential execution model</impact>
+      <fix>Reorder tasks or split into sub-orchestrator</fix>
+    </error>
+    <error>
+      <mistake>Missing Dependencies field</mistake>
+      <impact>Orchestrator cannot determine execution order</impact>
+      <fix>Always include, use "None" if no dependencies</fix>
+    </error>
+  </common_errors>
+
+  <sub_orchestrator_format>
+    <description>Special format for tasks requiring sub-orchestrator</description>
+    <template><![CDATA[
+### Task N: [SUB-ORCHESTRATOR] Complex Subtask Name
+- **Mode:** orchestrator
+- **Dependencies:** [Previous task dependencies]
+- **Scope:** [Bounded subtask description]
+- **Expected Workflow:** [Brief outline of sub-modes]
+- **Deliverables:**
+  - [Final integrated output]
+- **Success Criteria:** [Completion condition]
+- **Complexity:** Requires multi-mode coordination
+    ]]></template>
+    <when_to_use>
+      <criterion>Single subtask requires 3+ coordinated modes</criterion>
+      <criterion>Clear boundaries and deliverables</criterion>
+      <criterion>Complexity justifies orchestration overhead</criterion>
+    </when_to_use>
+  </sub_orchestrator_format>
+</plan_format_specification>

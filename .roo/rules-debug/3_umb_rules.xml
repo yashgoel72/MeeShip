@@ -1,0 +1,169 @@
+<umb_rules>
+  <overview>
+    UMB (Update Memory Bank) is a special command that triggers a comprehensive 
+    Memory Bank update, capturing all relevant information from the current chat session.
+    This ensures continuity when sessions are closed and new assistants take over.
+  </overview>
+
+  <trigger>
+    <pattern>^(Update Memory Bank|UMB)$</pattern>
+    <description>Case-sensitive exact match for either "Update Memory Bank" or "UMB"</description>
+  </trigger>
+
+  <command_received_actions>
+    <title>When UMB command is received</title>
+    <immediate_actions>
+      <action priority="1">
+        <name>Halt Current Task</name>
+        <description>Stop current activity immediately</description>
+      </action>
+      <action priority="2">
+        <name>Acknowledge Command</name>
+        <status_message>[MEMORY BANK: UPDATING]</status_message>
+      </action>
+      <action priority="3">
+        <name>Review Chat History</name>
+        <description>Analyze the complete conversation to extract relevant information</description>
+      </action>
+    </immediate_actions>
+  </command_received_actions>
+
+  <core_update_process>
+    <title>Core Update Process</title>
+
+    <phase number="1">
+      <name>Current Session Review</name>
+      <tasks>
+        <task>Analyze complete chat history</task>
+        <task>Extract cross-mode information</task>
+        <task>Track mode transitions</task>
+        <task>Map activity relationships</task>
+      </tasks>
+    </phase>
+
+    <phase number="2">
+      <name>Comprehensive Updates</name>
+      <tasks>
+        <task>Update from all mode perspectives</task>
+        <task>Preserve context across modes</task>
+        <task>Maintain activity threads</task>
+        <task>Document mode interactions</task>
+      </tasks>
+    </phase>
+
+    <phase number="3">
+      <name>Memory Bank Synchronization</name>
+      <tasks>
+        <task>Update all affected *.md files</task>
+        <task>Ensure cross-mode consistency</task>
+        <task>Preserve activity context</task>
+        <task>Document continuation points</task>
+      </tasks>
+    </phase>
+  </core_update_process>
+
+  <task_focus>
+    <title>Task Focus</title>
+    <scope>
+      During a UMB update, focus on capturing any clarifications, questions answered, 
+      or context provided *during the chat session*. This information should be added 
+      to the appropriate Memory Bank files (likely activeContext.md or decisionLog.md), 
+      using the other modes' update formats as a guide.
+    </scope>
+    <important_constraints>
+      <constraint>Do NOT attempt to summarize the entire project</constraint>
+      <constraint>Do NOT perform actions outside the scope of the current chat</constraint>
+      <constraint>Focus ONLY on session-specific information</constraint>
+    </important_constraints>
+  </task_focus>
+
+  <cross_mode_updates>
+    <title>Cross-Mode Updates</title>
+    <description>
+      During a UMB update, ensure that all relevant information from the chat session 
+      is captured and added to the Memory Bank. This includes any clarifications, 
+      questions answered, or context provided during the chat.
+    </description>
+    <guideline>
+      Use the other modes' update formats as a guide for adding this information 
+      to the appropriate Memory Bank files.
+    </guideline>
+  </cross_mode_updates>
+
+  <post_umb_actions>
+    <title>Post-UMB Actions</title>
+    <completion_messages>
+      <message>"Memory Bank fully synchronized"</message>
+      <message>"All mode contexts preserved"</message>
+      <message>"Session can be safely closed"</message>
+      <message>"Next assistant will have complete context"</message>
+    </completion_messages>
+  </post_umb_actions>
+
+  <override_settings>
+    <title>Override Settings</title>
+    <description>
+      UMB command has special privileges to ensure complete Memory Bank updates
+    </description>
+    <settings>
+      <setting name="override_file_restrictions">
+        <value>true</value>
+        <description>Can edit any file in memory-bank/ directory regardless of mode restrictions</description>
+      </setting>
+      <setting name="override_mode_restrictions">
+        <value>true</value>
+        <description>Can perform updates across all mode boundaries</description>
+      </setting>
+    </settings>
+  </override_settings>
+
+  <best_practices>
+    <practice priority="high">
+      <name>Comprehensive Session Analysis</name>
+      <description>
+        Review the entire chat history systematically to identify all significant 
+        information worth preserving in the Memory Bank.
+      </description>
+    </practice>
+
+    <practice priority="high">
+      <name>Cross-Mode Awareness</name>
+      <description>
+        Capture information from all modes used during the session, ensuring 
+        nothing is lost when switching between modes.
+      </description>
+    </practice>
+
+    <practice priority="medium">
+      <name>Context Preservation</name>
+      <description>
+        Maintain the narrative flow and relationships between different pieces 
+        of information added to the Memory Bank.
+      </description>
+    </practice>
+
+    <practice priority="medium">
+      <name>Clear Documentation</name>
+      <description>
+        Write updates in a way that will be immediately useful to the next 
+        assistant, with clear timestamps and context.
+      </description>
+    </practice>
+  </best_practices>
+
+  <workflow_example>
+    <title>Typical UMB Workflow</title>
+    <steps>
+      <step number="1">User types "UMB" or "Update Memory Bank"</step>
+      <step number="2">Debug mode halts current task</step>
+      <step number="3">Debug mode responds with "[MEMORY BANK: UPDATING]"</step>
+      <step number="4">Analyze chat history for significant information</step>
+      <step number="5">Update activeContext.md with current session context</step>
+      <step number="6">Update decisionLog.md with any decisions made</step>
+      <step number="7">Update progress.md with task completions/starts</step>
+      <step number="8">Update systemPatterns.md if patterns were discussed</step>
+      <step number="9">Update productContext.md if high-level changes occurred</step>
+      <step number="10">Confirm completion with post-UMB messages</step>
+    </steps>
+  </workflow_example>
+</umb_rules>

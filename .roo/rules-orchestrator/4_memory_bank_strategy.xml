@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<memory_bank_strategy>
+  <overview>
+    Comprehensive Memory Bank integration strategy for Orchestrator mode,
+    including initialization, updates, and synchronization across mode transitions.
+  </overview>
+
+  <initialization>
+    <memory_bank_check>
+      <critical_rule>
+        CHECK FOR MEMORY BANK FIRST:
+        - Examine environment_details file list provided at end of each user message
+        - Look for "memory-bank/" in Current Workspace Directory files list
+        - If "memory-bank/" is present → Memory Bank exists, set status to ACTIVE immediately
+        - If "memory-bank/" is NOT present → Memory Bank does not exist, proceed to creation flow
+        - Do NOT use tools to verify existence - environment_details is authoritative
+      </critical_rule>
+    </memory_bank_check>
+
+    <if_memory_bank_exists>
+      <step number="1">
+        <action>Immediately set status to [MEMORY BANK: ACTIVE]</action>
+      </step>
+      <step number="2">
+        <action>Inform user: "Memory Bank detected in workspace"</action>
+      </step>
+      <step number="3">
+        <action>Proceed with task WITHOUT reading files first</action>
+        <note>
+          Memory Bank files (productContext.md, activeContext.md, systemPatterns.md,
+          decisionLog.md, progress.md) will be loaded on-demand when context is needed
+          for orchestration decisions
+        </note>
+      </step>
+    </if_memory_bank_exists>
+
+    <if_no_memory_bank>
+      <user_notification>
+        No Memory Bank was found. As Orchestrator, I recommend creating one to maintain
+        project context across mode transitions. Would you like to switch to Architect mode to create it?
+      </user_notification>
+      
+      <if_user_declines>
+        <action>Set status to '[MEMORY BANK: INACTIVE]'</action>
+        <action>Inform user Memory Bank will not be created</action>
+        <action>Proceed with task coordination</action>
+        <note>Cross-mode context preservation will be limited</note>
+      </if_user_declines>
+
+      <if_user_agrees>
+        <step number="1">Delegate to Architect mode to create Memory Bank</step>
+        <step number="2">Wait for completion</step>
+        <step number="3">Load newly created Memory Bank</step>
+        <step number="4">Set status to '[MEMORY BANK: ACTIVE]'</step>
+        <step number="5">Resume orchestration task</step>
+      </if_user_agrees>
+    </if_no_memory_bank>
+  </initialization>
+
+  <memory_query_integration>
+    <overview>
+      Use Memory Query mode for efficient context retrieval instead of reading all files
+    </overview>
+
+    <session_state_tracking>
+      <critical_rule>
+        PREVENT REDUNDANT MEMORY QUERIES:
+        - Track if memory has been consulted in current session
+        - Once memory is queried, mark status as [MEMORY BANK: CONSULTED]
+        - Other modes should check for CONSULTED status before querying again
+        - Prevents wasteful loops of repeated memory consultation
+      </critical_rule>
+
+      <status_states>
+        <state name="INACTIVE">Memory Bank does not exist in workspace</state>
+        <state name="ACTIVE">Memory Bank exists but not yet consulted this session</state>
+        <state name="CONSULTED">Memory Bank has been queried in this session</state>
+        <state name="UPDATING">Currently updating memory bank files</state>
+        <state name="SYNCHRONIZED">Memory Bank updated and in sync</state>
+      </status_states>
+    </session_state_tracking>
+
+    <decision_point>
+      <description>Determine if task requires memory bank knowledge</description>
+      
+      <check_consulted_status>
+        <rule>Before querying Memory Bank, check current session state</rule>
+        <if_status_is_consulted>
+          <action>Skip memory query - context already loaded in session</action>
+          <action>Use existing knowledge from previous consultation</action>
+          <action>Maintain [MEMORY BANK: CONSULTED] status</action>
+          <note>This prevents redundant queries and saves time/tokens</note>
+        </if_status_is_consulted>
+        <if_status_is_active>
+          <action>Proceed with memory query decision logic below</action>
+        </if_status_is_active>
+      </check_consulted_status>
+
+      <requires_memory_bank_knowledge>
+        <examples>
+          <example>Planning workflows (check existing patterns)</example>
+          <example>Coordinating modes (verify constraints)</example>
+          <example>Breaking down tasks (understand architecture)</example>
+          <example>Managing delegations (review progress)</example>
+          <example>Making orchestration decisions (lookup decisions)</example>
+          <example>Task Planner delegation (provide constraints)</example>
+        </examples>
+
+        <action_query_memory_query_mode>
+          <step number="1">
+            <title>Switch to Memory Query Mode</title>
+            <template><![CDATA[
+<switch_mode>
+<mode_slug>memory-query</mode_slug>
+<reason>Need to extract relevant context for: {brief orchestration task}</reason>
+</switch_mode>
+            ]]></template>
+          </step>
+
+          <step number="2">
+            <title>Provide Structured Query</title>
+            <description>Once in Memory Query mode</description>
+            <format>
+Query: {specific question about workflow or context}
+Context: {what you're orchestrating}
+ParentMode: orchestrator
+            </format>
+          </step>
+
+          <step number="3">
+            <title>Receive Condensed Response</title>
+            <description>Max 500 lines vs 2000+ from full read</description>
+            <includes>
+              <item>Key Facts</item>
+              <item>Detailed Context</item>
+              <item>Constraints and Warnings</item>
+              <item>Recommendations</item>
+              <item>Citations</item>
+            </includes>
+          </step>
+
+          <step number="4">
+            <title>Return to Orchestrator Mode</title>
+            <description>Memory Query mode will switch you back</description>
+          </step>
+
+          <step number="5">
+            <title>Apply Retrieved Knowledge</title>
+            <description>Use condensed context for orchestration planning</description>
+          </step>
+
+          <step number="6">
+            <title>Set Status to CONSULTED</title>
+            <description>[MEMORY BANK: CONSULTED] and proceed with orchestration</description>
+            <note>This marks that memory has been queried in this session</note>
+          </step>
+        </action_query_memory_query_mode>
+      </requires_memory_bank_knowledge>
+
+      <does_not_require_memory_bank_knowledge>
+        <examples>
+          <example>Simple delegation tasks</example>
+          <example>Generic workflow patterns</example>
+          <example>Standard coordination</example>
+        </examples>
+
+        <action>
+          <step>Maintain current status (ACTIVE or CONSULTED as appropriate)</step>
+          <step>Proceed with orchestration directly without querying memory</step>
+          <note>Do not change CONSULTED back to ACTIVE if memory was already queried</note>
+        </action>
+      </does_not_require_memory_bank_knowledge>
+    </decision_point>
+
+    <fallback_strategy>
+      <description>If Memory Query mode is unavailable</description>
+      <step number="1">Read memory bank files directly (legacy behavior)</step>
+      <step number="2">Focus on most relevant files first</step>
+      <step number="3">Note: Higher risk of context overflow</step>
+    </fallback_strategy>
+  </memory_query_integration>
+
+  <context_integration>
+    <after_querying_memory_bank>
+      <assess>What's in progress?</assess>
+      <identify>What decisions affect current task?</identify>
+      <check>What architectural patterns apply?</check>
+      <review>What's completed, what's remaining?</review>
+      <note>Any blockers or questions?</note>
+    </after_querying_memory_bank>
+  </context_integration>
+
+  <memory_bank_updates_during_orchestration>
+    <update_triggers>
+      <trigger>Major Delegation: Significant subtask delegated to mode</trigger>
+      <trigger>Workflow Change: Plan adjusted or modified</trigger>
+      <trigger>Mode Transition: Context handoff between modes</trigger>
+      <trigger>Decision Point: Key orchestration decision made</trigger>
+      <trigger>Checkpoint Reached: Milestone or phase completed</trigger>
+      <trigger>Issue Encountered: Blocker or problem identified</trigger>
+      <trigger>Task Planner Used: Plan created and being executed</trigger>
+    </update_triggers>
+
+    <update_strategy>
+      <continuous_updates>
+        <rule>Don't wait until end to update</rule>
+        <rule>Update as significant events occur</rule>
+        <rule>Preserve context at handoff points</rule>
+        <rule>Document decisions in real-time</rule>
+      </continuous_updates>
+    </update_strategy>
+
+    <file_specific_updates>
+      <file name="activeContext.md">
+        <update_for>
+          <item>Current orchestration focus</item>
+          <item>Active delegations</item>
+          <item>Mode transitions</item>
+          <item>Recent workflow changes</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Orchestrator] [Summary]</format>
+        <example>
+[2025-10-26 12:30:00] - [Orchestrator] Delegated authentication feature implementation to Code mode. Context: JWT-based auth, bcrypt for passwords.
+        </example>
+      </file>
+
+      <file name="decisionLog.md">
+        <update_for>
+          <item>Workflow design decisions</item>
+          <item>Mode selection rationale</item>
+          <item>Task decomposition approach</item>
+          <item>Priority changes</item>
+          <item>Task Planner delegation decisions</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Orchestrator Decision] [Summary]</format>
+        <example>
+[2025-10-26 12:35:00] - [Orchestrator Decision] Split database migration into separate task from API implementation to enable parallel work. Rationale: Independent concerns, different modes can work simultaneously.
+        </example>
+      </file>
+
+      <file name="progress.md">
+        <update_for>
+          <item>Subtask completions</item>
+          <item>Milestone achievements</item>
+          <item>Blockers encountered</item>
+          <item>Workflow adjustments</item>
+          <item>Task Planner plan execution status</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Orchestrator Progress] [Summary]</format>
+        <example>
+[2025-10-26 12:40:00] - [Orchestrator Progress] Completed Phase 1 (Architecture Design) via Architect mode. Starting Phase 2 (Implementation) with Code mode delegation.
+        </example>
+      </file>
+
+      <file name="systemPatterns.md">
+        <update_for>
+          <item>Orchestration patterns used</item>
+          <item>Workflow templates</item>
+          <item>Coordination strategies</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Orchestration Pattern] [Description]</format>
+        <example>
+[2025-10-26 12:45:00] - [Orchestration Pattern] Pipeline Pattern: Architect → Code → Execute/Debug → Test → Documentation Writer for feature development workflow.
+        </example>
+      </file>
+
+      <file name="productContext.md">
+        <update_for>
+          <item>Major feature additions</item>
+          <item>Architecture changes</item>
+          <item>Technology decisions</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Orchestrator Context] [Summary]</format>
+        <note>Less frequent - only for significant changes</note>
+      </file>
+    </file_specific_updates>
+  </memory_bank_updates_during_orchestration>
+
+  <cross_mode_memory_bank_synchronization>
+    <before_delegation>
+      <pre_handoff_update>
+        <step>Document current orchestration state</step>
+        <step>Record delegation decision and rationale</step>
+        <step>Note expected outcomes</step>
+        <step>Preserve context for next mode</step>
+      </pre_handoff_update>
+
+      <example_update_pattern>
+activeContext.md:
+[timestamp] - [Orchestrator] Delegating to [Mode]. Task: [description]. Context preserved for handoff.
+
+decisionLog.md:
+[timestamp] - [Orchestrator Decision] Selected [Mode] for [task] because [rationale].
+      </example_update_pattern>
+    </before_delegation>
+
+    <after_delegation_returns>
+      <post_handoff_update>
+        <step>Document results received</step>
+        <step>Record any issues or deviations</step>
+        <step>Update progress tracking</step>
+        <step>Note next steps in workflow</step>
+      </post_handoff_update>
+
+      <example_update_pattern>
+progress.md:
+[timestamp] - [Orchestrator Progress] Received completion from [Mode]. Deliverables: [list]. Status: [success/issues].
+
+activeContext.md:
+[timestamp] - [Orchestrator] [Mode] completed [task]. Next: [what comes next].
+      </example_update_pattern>
+    </after_delegation_returns>
+  </cross_mode_memory_bank_synchronization>
+
+  <umb_update_memory_bank_in_orchestrator_mode>
+    <special_orchestrator_umb_handling>
+      <when_umb_command_received>
+        <acknowledge>
+[MEMORY BANK: UPDATING]
+[ORCHESTRATOR MODE]
+
+Halting orchestration workflow to perform comprehensive Memory Bank update.
+        </acknowledge>
+
+        <enhanced_update_process>
+          <step number="1">
+            <title>Cross-Mode Analysis</title>
+            <actions>
+              <action>Review all mode delegations in current session</action>
+              <action>Identify cross-mode context</action>
+              <action>Map workflow transitions</action>
+              <action>Capture orchestration decisions</action>
+            </actions>
+          </step>
+
+          <step number="2">
+            <title>Precise Updates</title>
+            <critical_rules>
+              <rule>Updates must only contain changes relevant to codebase</rule>
+              <rule>Orchestrator mode workflow should not be included</rule>
+              <rule>Updates should focus on preserving context for future sessions</rule>
+              <rule>Ensure all delegations and their results are accurately reflected</rule>
+            </critical_rules>
+          </step>
+
+          <step number="3">
+            <title>File Updates</title>
+            <files_to_update>
+              <file>activeContext.md: Current orchestration state</file>
+              <file>decisionLog.md: Decisions related to code changes (NOT orchestration-only decisions)</file>
+              <file>productContext.md: Major architecture or feature changes</file>
+              <file>progress.md: Task progress and delegation details</file>
+              <file>systemPatterns.md: System patterns changed in codebase (NOT orchestration patterns)</file>
+            </files_to_update>
+          </step>
+
+          <step number="4">
+            <title>Completion</title>
+            <message>
+[MEMORY BANK: SYNCHRONIZED]
+
+Memory Bank fully updated with:
+- Orchestration workflow state
+- All mode delegations and results
+- Cross-mode context preserved
+- Coordination decisions documented
+
+Session can be safely closed. Next Orchestrator will have complete workflow context.
+            </message>
+          </step>
+        </enhanced_update_process>
+
+        <override_settings_during_umb>
+          <override>override_file_restrictions: true</override>
+          <override>override_mode_restrictions: true</override>
+          <description>Allows Orchestrator to update all Memory Bank files during UMB</description>
+        </override_settings_during_umb>
+      </when_umb_command_received>
+    </special_orchestrator_umb_handling>
+  </umb_update_memory_bank_in_orchestrator_mode>
+
+  <general_rules>
+    <status_prefix>
+      <rule>EVERY response must begin with:</rule>
+      <format>
+[MEMORY BANK: ACTIVE/CONSULTED/INACTIVE]
+[ORCHESTRATOR MODE]
+      </format>
+      <purpose>
+        Clearly indicates:
+        - Memory Bank availability and consultation status
+        - Operating mode
+        - Orchestration context
+      </purpose>
+      <status_meanings>
+        <status>INACTIVE: Memory Bank does not exist</status>
+        <status>ACTIVE: Memory Bank exists but not yet queried this session</status>
+        <status>CONSULTED: Memory Bank has been queried in this session</status>
+      </status_meanings>
+    </status_prefix>
+
+    <best_practices>
+      <do>
+        <practice>Load Memory Bank before starting orchestration</practice>
+        <practice>Update continuously during workflow</practice>
+        <practice>Preserve context at handoff points</practice>
+        <practice>Document all orchestration decisions</practice>
+        <practice>Track progress across delegations</practice>
+        <practice>Maintain cross-mode consistency</practice>
+        <practice>Use Memory Query mode for efficient context retrieval</practice>
+      </do>
+
+      <dont>
+        <practice>Skip Memory Bank loading</practice>
+        <practice>Wait until end to update</practice>
+        <practice>Lose context between modes</practice>
+        <practice>Forget to document decisions</practice>
+        <practice>Ignore workflow state</practice>
+        <practice>Miss cross-mode dependencies</practice>
+      </dont>
+    </best_practices>
+  </general_rules>
+
+  <integration_with_orchestration_workflow>
+    <workflow_memory_bank_pattern>
+      <step number="1">Load Memory Bank (via Memory Query if needed)</step>
+      <step number="2">Analyze task + context</step>
+      <step number="3">Plan workflow (consider Task Planner for complex projects)</step>
+      <step number="4">Update activeContext.md with plan</step>
+      <step number="5">Delegate to Mode A</step>
+      <step number="6">Update progress.md + decisionLog.md</step>
+      <step number="7">Receive results from Mode A</step>
+      <step number="8">Update activeContext.md + progress.md</step>
+      <step number="9">Delegate to Mode B</step>
+      <step number="10">[Repeat update cycle]</step>
+      <step number="11">Consolidate results</step>
+      <step number="12">Final Memory Bank update</step>
+      <step number="13">Complete orchestration</step>
+    </workflow_memory_bank_pattern>
+
+    <context_preservation_priority>
+      <high_priority>
+        <item>Current workflow state</item>
+        <item>Active delegations</item>
+        <item>Mode transition points</item>
+        <item>Critical decisions</item>
+        <item>Blockers and issues</item>
+        <item>Task Planner plans being executed</item>
+      </high_priority>
+
+      <medium_priority>
+        <item>Completed subtasks</item>
+        <item>Minor adjustments</item>
+        <item>Status updates</item>
+        <item>Progress notes</item>
+      </medium_priority>
+
+      <low_priority>
+        <item>Routine updates</item>
+        <item>Expected outcomes</item>
+        <item>Standard procedures</item>
+      </low_priority>
+    </context_preservation_priority>
+  </integration_with_orchestration_workflow>
+</memory_bank_strategy>

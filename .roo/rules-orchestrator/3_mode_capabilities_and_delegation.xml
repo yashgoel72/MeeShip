@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mode_capabilities_and_delegation>
+  <overview>
+    Comprehensive guide to available modes, their capabilities, and delegation patterns.
+    Includes specialized modes like Task Planner for workflow planning assistance.
+  </overview>
+
+  <available_modes>
+    <mode slug="architect">
+      <name>🏗️ Architect</name>
+      <primary_purpose>Planning, design, and strategic thinking</primary_purpose>
+      <best_for>
+        <use_case>Breaking down complex problems</use_case>
+        <use_case>Creating technical specifications</use_case>
+        <use_case>Designing system architecture</use_case>
+        <use_case>Brainstorming solutions before coding</use_case>
+        <use_case>Creating Memory Bank structures</use_case>
+        <use_case>Documentation planning</use_case>
+      </best_for>
+      <file_restrictions>
+        <restriction>Can only edit files matching \.md$ (Markdown files)</restriction>
+      </file_restrictions>
+      <key_capabilities>
+        <capability>System design and architecture</capability>
+        <capability>Memory Bank creation and management</capability>
+        <capability>Technical specification writing</capability>
+        <capability>Strategic planning</capability>
+        <capability>Documentation structure design</capability>
+      </key_capabilities>
+      <handoff_triggers>
+        <trigger>Need to implement code → Code</trigger>
+        <trigger>Need to execute commands → Code</trigger>
+        <trigger>Need to investigate errors → Debug</trigger>
+        <trigger>Need answers without changes → Ask</trigger>
+      </handoff_triggers>
+    </mode>
+
+    <mode slug="code">
+      <name>💻 Code</name>
+      <primary_purpose>Writing, modifying, and refactoring code</primary_purpose>
+      <best_for>
+        <use_case>Implementing features</use_case>
+        <use_case>Fixing bugs</use_case>
+        <use_case>Creating new files</use_case>
+        <use_case>Code refactoring</use_case>
+        <use_case>Applying code changes</use_case>
+        <use_case>File system operations</use_case>
+      </best_for>
+      <file_restrictions>
+        <restriction>Can edit any file type</restriction>
+      </file_restrictions>
+      <key_capabilities>
+        <capability>Full code editing across all languages</capability>
+        <capability>File creation and modification</capability>
+        <capability>Command execution</capability>
+        <capability>Dependency management</capability>
+        <capability>Code generation and refactoring</capability>
+      </key_capabilities>
+      <handoff_triggers>
+        <trigger>Need architectural planning → Architect</trigger>
+        <trigger>Need systematic debugging → Debug</trigger>
+        <trigger>Need explanations only → Ask</trigger>
+        <trigger>Need test implementation → Test</trigger>
+      </handoff_triggers>
+    </mode>
+
+    <mode slug="ask">
+      <name>❓ Ask</name>
+      <primary_purpose>Explanations and answering questions</primary_purpose>
+      <best_for>
+        <use_case>Understanding concepts</use_case>
+        <use_case>Analyzing existing code</use_case>
+        <use_case>Getting recommendations</use_case>
+        <use_case>Learning about technologies</use_case>
+        <use_case>Code reviews and explanations</use_case>
+        <use_case>Documentation queries</use_case>
+      </best_for>
+      <file_restrictions>
+        <restriction>Cannot edit files (read-only)</restriction>
+      </file_restrictions>
+      <key_capabilities>
+        <capability>Code analysis and explanation</capability>
+        <capability>Technology recommendations</capability>
+        <capability>Conceptual explanations</capability>
+        <capability>Best practices guidance</capability>
+        <capability>Documentation interpretation</capability>
+      </key_capabilities>
+      <handoff_triggers>
+        <trigger>Need to make changes → Code</trigger>
+        <trigger>Need to debug issues → Debug</trigger>
+        <trigger>Need architectural design → Architect</trigger>
+        <trigger>Need testing → Test</trigger>
+      </handoff_triggers>
+    </mode>
+
+    <mode slug="debug">
+      <name>🪲 Debug</name>
+      <primary_purpose>Troubleshooting and diagnostics</primary_purpose>
+      <best_for>
+        <use_case>Investigating errors</use_case>
+        <use_case>Analyzing stack traces</use_case>
+        <use_case>Systematic debugging</use_case>
+        <use_case>Adding logging and diagnostics</use_case>
+        <use_case>Root cause analysis</use_case>
+        <use_case>Error reproduction</use_case>
+      </best_for>
+      <file_restrictions>
+        <restriction>Can edit any file type</restriction>
+      </file_restrictions>
+      <key_capabilities>
+        <capability>Error investigation</capability>
+        <capability>Log analysis</capability>
+        <capability>Debugging strategy</capability>
+        <capability>Diagnostic code insertion</capability>
+        <capability>Issue isolation</capability>
+        <capability>Stack trace interpretation</capability>
+      </key_capabilities>
+      <handoff_triggers>
+        <trigger>Fix identified, ready to apply → Code</trigger>
+        <trigger>Need architectural redesign → Architect</trigger>
+        <trigger>Need test coverage → Test</trigger>
+      </handoff_triggers>
+    </mode>
+
+    <mode slug="test">
+      <name>🧪 Test</name>
+      <primary_purpose>Test-driven development and quality assurance</primary_purpose>
+      <best_for>
+        <use_case>Writing test cases</use_case>
+        <use_case>Test execution</use_case>
+        <use_case>Test coverage analysis</use_case>
+        <use_case>Quality assurance</use_case>
+        <use_case>Test framework setup</use_case>
+        <use_case>Validation testing</use_case>
+      </best_for>
+      <file_restrictions>
+        <restriction>Can edit any file type</restriction>
+      </file_restrictions>
+      <key_capabilities>
+        <capability>Test creation and management</capability>
+        <capability>Test framework configuration</capability>
+        <capability>Test execution and analysis</capability>
+        <capability>Coverage reporting</capability>
+        <capability>TDD workflow</capability>
+        <capability>Quality metrics</capability>
+      </key_capabilities>
+      <handoff_triggers>
+        <trigger>Need implementation code → Code</trigger>
+        <trigger>Need architecture changes → Architect</trigger>
+        <trigger>Need debugging → Debug</trigger>
+      </handoff_triggers>
+    </mode>
+
+    <mode slug="project-research">
+      <name>🔍 Project Research</name>
+      <primary_purpose>Codebase investigation and analysis</primary_purpose>
+      <best_for>
+        <use_case>Understanding project structure</use_case>
+        <use_case>Analyzing existing implementations</use_case>
+        <use_case>Finding patterns in codebase</use_case>
+        <use_case>Researching dependencies</use_case>
+        <use_case>Onboarding to new projects</use_case>
+      </best_for>
+      <file_restrictions>
+        <restriction>Read-only access</restriction>
+      </file_restrictions>
+      <key_capabilities>
+        <capability>Comprehensive codebase analysis</capability>
+        <capability>Pattern identification</capability>
+        <capability>Dependency mapping</capability>
+        <capability>Architecture understanding</capability>
+      </key_capabilities>
+      <handoff_triggers>
+        <trigger>Need to plan changes → Architect</trigger>
+        <trigger>Need to implement → Code</trigger>
+        <trigger>Need to create plan → Task Planner</trigger>
+      </handoff_triggers>
+    </mode>
+
+    <mode slug="task-planner">
+      <name>📋 Task Planner</name>
+      <primary_purpose>Creating detailed orchestration plans for complex projects</primary_purpose>
+      <best_for>
+        <use_case>Planning complex multi-step projects (4+ coordinated modes)</use_case>
+        <use_case>Understanding Memory Bank constraints before planning</use_case>
+        <use_case>Researching existing implementations to inform approach</use_case>
+        <use_case>Creating execution plans for Orchestrator</use_case>
+        <use_case>Defining task sequences with dependencies</use_case>
+      </best_for>
+      <file_restrictions>
+        <restriction>Cannot edit files (planning only)</restriction>
+      </file_restrictions>
+      <key_capabilities>
+        <capability>Memory Bank constraint analysis</capability>
+        <capability>Codebase research via Project Research mode</capability>
+        <capability>Multi-mode workflow planning</capability>
+        <capability>Dependency mapping</capability>
+        <capability>Machine-readable plan generation (XML format)</capability>
+        <capability>Success criteria definition</capability>
+      </key_capabilities>
+      <handoff_triggers>
+        <trigger>Plan complete → Return to Orchestrator for execution</trigger>
+        <trigger>Need implementation → Orchestrator delegates to Code</trigger>
+      </handoff_triggers>
+      <when_to_use>
+        <scenario>Complex projects requiring 4+ coordinated mode executions</scenario>
+        <scenario>Tasks with unclear sequencing or dependencies</scenario>
+        <scenario>Work requiring Memory Bank constraint understanding</scenario>
+        <scenario>Projects needing existing implementation research</scenario>
+      </when_to_use>
+      <output_format>
+        <description>Returns machine-readable XML orchestration plan</description>
+        <includes>
+          <include>Task breakdown with mode assignments</include>
+          <include>Dependency chains</include>
+          <include>Success criteria per phase</include>
+          <include>Execution sequence</include>
+        </includes>
+      </output_format>
+    </mode>
+
+    <mode slug="orchestrator">
+      <name>🪃 Orchestrator</name>
+      <primary_purpose>Coordinating complex multi-step projects</primary_purpose>
+      <best_for>
+        <use_case>Breaking down large tasks</use_case>
+        <use_case>Managing workflows</use_case>
+        <use_case>Coordinating across modes</use_case>
+        <use_case>Progress tracking</use_case>
+        <use_case>Complex project management</use_case>
+        <use_case>Delegating to Task Planner for structured planning</use_case>
+        <use_case>Delegating complex subtasks to sub-orchestrators</use_case>
+      </best_for>
+      <file_restrictions>
+        <restriction>During normal operation: Memory Bank files only</restriction>
+        <restriction>During UMB: Can override restrictions</restriction>
+      </file_restrictions>
+      <key_capabilities>
+        <capability>Task decomposition</capability>
+        <capability>Workflow management</capability>
+        <capability>Mode delegation</capability>
+        <capability>Task Planner integration for complex planning</capability>
+        <capability>Sub-orchestrator delegation (recursive orchestration)</capability>
+        <capability>Progress tracking</capability>
+        <capability>Context preservation</capability>
+        <capability>Cross-mode coordination</capability>
+      </key_capabilities>
+      <handoff_triggers>
+        <trigger>Subtask needs specific mode expertise</trigger>
+        <trigger>Complex planning needed → Task Planner</trigger>
+        <trigger>Complex subtask needs own orchestration → Sub-Orchestrator</trigger>
+      </handoff_triggers>
+    </mode>
+  </available_modes>
+
+  <mode_selection_decision_tree>
+    <description>Decision flow for choosing the appropriate mode</description>
+    <decision_flow><![CDATA[
+Task Received
+    │
+    ├─ Complex multi-mode project (4+ modes)?
+    │   └─ YES → Consider Task Planner for structured plan
+    │
+    ├─ Need planning/design?
+    │   └─ YES → Architect
+    │
+    ├─ Need code changes?
+    │   ├─ Test-driven approach? → Test mode first
+    │   └─ Otherwise → Code mode
+    │
+    ├─ Need investigation only?
+    │   ├─ Understanding codebase → Project Research or Ask
+    │   ├─ Error/bug → Debug
+    │   └─ Explanation → Ask
+    │
+    ├─ Need testing?
+    │   └─ YES → Test
+    │
+    ├─ Complex multi-mode task?
+    │   └─ YES → Orchestrator (self)
+    │
+    └─ Subtask needs own orchestration?
+        └─ YES → Sub-Orchestrator (delegate to orchestrator mode)
+    ]]></decision_flow>
+  </mode_selection_decision_tree>
+
+  <delegation_best_practices>
+    <practice priority="high">
+      <name>Single Responsibility</name>
+      <description>Each delegation should have one clear purpose</description>
+    </practice>
+    <practice priority="high">
+      <name>Clear Context</name>
+      <description>Provide complete context for delegated mode</description>
+      <example>Include Memory Bank context, file locations, success criteria</example>
+    </practice>
+    <practice priority="high">
+      <name>Defined Success</name>
+      <description>Specify what "done" looks like</description>
+    </practice>
+    <practice priority="medium">
+      <name>Memory Bank Updates</name>
+      <description>Ensure Memory Bank updated before handoff</description>
+    </practice>
+    <practice priority="medium">
+      <name>Error Handling</name>
+      <description>Plan for potential failures</description>
+    </practice>
+    <practice priority="medium">
+      <name>Sequential Order</name>
+      <description>Respect dependencies between tasks</description>
+    </practice>
+    <practice priority="high">
+      <name>Task Planner Integration</name>
+      <description>Use Task Planner for complex projects needing structured planning</description>
+      <when>4+ coordinated modes, unclear dependencies, Memory Bank constraints</when>
+    </practice>
+    <practice priority="medium">
+      <name>Orchestration Depth</name>
+      <description>Consider sub-orchestrator when subtask needs 3+ coordinated modes</description>
+    </practice>
+    <practice priority="medium">
+      <name>Bounded Complexity</name>
+      <description>Sub-orchestrators work best with well-defined, bounded subtasks</description>
+    </practice>
+    <practice priority="low">
+      <name>Depth Limits</name>
+      <description>Avoid excessive nesting (recommend max 2-3 levels)</description>
+    </practice>
+  </delegation_best_practices>
+
+  <delegation_templates>
+    <template name="standard_delegation">
+      <description>Standard mode delegation pattern</description>
+      <format><![CDATA[
+<new_task>
+<mode>[mode-slug]</mode>
+<message>
+[Mode name] mode, please [specific task].
+
+Context:
+- [Relevant background]
+- [Previous work completed]
+- [Dependencies satisfied]
+
+Requirements:
+- [Specific deliverables]
+- [Constraints or guidelines]
+- [Success criteria]
+
+Memory Bank Status: [ACTIVE/INACTIVE]
+[If active: Include relevant context from Memory Bank]
+</message>
+</new_task>
+      ]]></format>
+    </template>
+
+    <template name="task_planner_delegation">
+      <description>Delegation to Task Planner for plan creation</description>
+      <format><![CDATA[
+<new_task>
+<mode>task-planner</mode>
+<message>
+Task Planner mode, please create a detailed orchestration plan for the following project:
+
+Project Description:
+[Clear description of the overall goal]
+
+Requirements:
+- [Specific requirement 1]
+- [Specific requirement 2]
+- [Specific requirement 3]
+
+Constraints:
+- [Memory Bank constraints]
+- [File access limitations]
+- [Dependencies or prerequisites]
+
+Memory Bank Status: [ACTIVE/INACTIVE]
+[If active: Include relevant architectural patterns, decisions, constraints]
+
+Please provide:
+1. Comprehensive orchestration plan in XML format
+2. Breakdown of tasks with mode assignments
+3. Dependency management strategy
+4. Success criteria for each phase
+</message>
+</new_task>
+      ]]></format>
+    </template>
+
+    <template name="sub_orchestrator_delegation">
+      <description>Delegation to sub-orchestrator for complex subtask</description>
+      <format><![CDATA[
+<new_task>
+<mode>orchestrator</mode>
+<message>
+Orchestrator mode, coordinate the following complex subtask as a sub-orchestrator.
+
+Parent Task Context:
+[High-level goal this subtask supports]
+
+Subtask Scope:
+[Detailed description of the bounded subtask]
+
+Workflow Coordination Needed:
+[Brief description of expected multi-mode workflow]
+Example: Design → Implement → Execute/Debug → Test
+
+Deliverables:
+- [Specific outcomes required]
+- [Success criteria]
+
+Constraints:
+- Orchestration depth: Level [N] (you are Level [N-1])
+- Maximum depth allowed: [N+1 or N+2]
+- Memory Bank: [ACTIVE/INACTIVE]
+
+Context from Memory Bank:
+[Relevant excerpts if Memory Bank active]
+
+Upon completion, use attempt_completion to report:
+- Summary of coordinated workflow
+- All modes used and their outputs
+- Key decisions made
+- Final deliverables
+- Any issues or blockers encountered
+
+This is a Level [N] orchestration task within the larger Level [N-1] workflow.
+</message>
+</new_task>
+      ]]></format>
+    </template>
+  </delegation_templates>
+
+  <sub_orchestrator_pattern>
+    <description>Hierarchical orchestration for complex subtasks</description>
+    <structure><![CDATA[
+Parent Orchestrator (Level 0)
+    ↓ delegates complex subtask
+Sub-Orchestrator (Level 1)
+    ↓ coordinates modes
+Architect → Code → Execute/Debug → Test
+    ↓ returns consolidated results
+Parent Orchestrator
+    ↓ continues with next task
+    ]]></structure>
+    <use_case_example>
+      <task>Add comprehensive logging to application</task>
+      <delegation>
+        <description>Parent Orchestrator delegates to Sub-Orchestrator</description>
+        <sub_orchestrator_coordinates>
+          <phase number="1">Architect: Design log levels and format</phase>
+          <phase number="2">Code: Implement logger class</phase>
+          <phase number="3">Test: Verify logging functionality</phase>
+          <phase number="4">Code: Integrate logger across modules</phase>
+        </sub_orchestrator_coordinates>
+        <returns>Complete logging system implemented</returns>
+      </delegation>
+      <continuation>Parent Orchestrator continues with remaining tasks</continuation>
+    </use_case_example>
+  </sub_orchestrator_pattern>
+</mode_capabilities_and_delegation>

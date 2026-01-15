@@ -1,0 +1,426 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testing_strategy>
+  <overview>
+    Comprehensive testing strategy and process guide for Test mode,
+    covering testing approaches, phases, documentation, TDD workflow,
+    and continuous improvement practices.
+  </overview>
+
+  <testing_approaches>
+    <approach type="integration">
+      <focus>Verify system components work together</focus>
+      <activities>
+        <activity>Verify server startup and configuration</activity>
+        <activity>Test each exposed tool and resource</activity>
+        <activity>Validate input/output schemas</activity>
+        <activity>Check error handling paths</activity>
+      </activities>
+      <best_practices>
+        <practice>Test realistic user workflows</practice>
+        <practice>Verify data flow between components</practice>
+        <practice>Check integration points</practice>
+        <practice>Validate system behavior</practice>
+      </best_practices>
+    </approach>
+
+    <approach type="authentication">
+      <focus>Security and access control</focus>
+      <activities>
+        <activity>Verify environment variable handling</activity>
+        <activity>Test authentication flows</activity>
+        <activity>Validate security settings</activity>
+        <activity>Check permission restrictions</activity>
+      </activities>
+      <best_practices>
+        <practice>Test valid credentials</practice>
+        <practice>Test invalid credentials</practice>
+        <practice>Verify token handling</practice>
+        <practice>Check authorization levels</practice>
+      </best_practices>
+    </approach>
+
+    <approach type="performance">
+      <focus>System efficiency and scalability</focus>
+      <activities>
+        <activity>Monitor response times</activity>
+        <activity>Check resource utilization</activity>
+        <activity>Validate concurrent operations</activity>
+        <activity>Test under load conditions</activity>
+      </activities>
+      <best_practices>
+        <practice>Establish baseline metrics</practice>
+        <practice>Test edge cases</practice>
+        <practice>Monitor memory usage</practice>
+        <practice>Check for bottlenecks</practice>
+      </best_practices>
+    </approach>
+
+    <approach type="error_scenarios">
+      <focus>Graceful failure handling</focus>
+      <activities>
+        <activity>Test invalid inputs</activity>
+        <activity>Check timeout handling</activity>
+        <activity>Validate error messages</activity>
+        <activity>Verify recovery processes</activity>
+      </activities>
+      <best_practices>
+        <practice>Test boundary conditions</practice>
+        <practice>Verify error messages are clear</practice>
+        <practice>Check rollback mechanisms</practice>
+        <practice>Test recovery paths</practice>
+      </best_practices>
+    </approach>
+
+    <approach type="configuration">
+      <focus>System setup and initialization</focus>
+      <activities>
+        <activity>Validate server settings</activity>
+        <activity>Test environment variables</activity>
+        <activity>Check file paths</activity>
+        <activity>Verify startup options</activity>
+      </activities>
+      <best_practices>
+        <practice>Test default configurations</practice>
+        <practice>Test custom configurations</practice>
+        <practice>Verify configuration validation</practice>
+        <practice>Check configuration precedence</practice>
+      </best_practices>
+    </approach>
+  </testing_approaches>
+
+  <testing_process>
+    <phase number="1" name="requirements">
+      <objectives>
+        <objective>Get requirements from Architect mode or user input</objective>
+        <objective>Clarify requirements with Ask mode if needed</objective>
+        <objective>Create a test strategy and document it</objective>
+        <objective>Get plan approval from Architect mode if significant changes are made</objective>
+      </objectives>
+      <deliverables>
+        <deliverable>Test strategy document</deliverable>
+        <deliverable>Coverage goals</deliverable>
+        <deliverable>Success criteria</deliverable>
+        <deliverable>Dependencies identified</deliverable>
+      </deliverables>
+    </phase>
+
+    <phase number="2" name="test_development">
+      <objectives tdd="true">
+        <objective priority="high">Write test cases *before* implementing the corresponding code</objective>
+        <objective>Document coverage goals</objective>
+        <objective>Set clear success criteria for each test</objective>
+        <objective>Note dependencies between tests</objective>
+      </objectives>
+      <key_principle>
+        Test-Driven Development (TDD) is core to RooFlow's Test mode
+      </key_principle>
+      <deliverables>
+        <deliverable>Test cases (written first)</deliverable>
+        <deliverable>Test documentation</deliverable>
+        <deliverable>Coverage plan</deliverable>
+        <deliverable>Dependency map</deliverable>
+      </deliverables>
+    </phase>
+
+    <phase number="3" name="test_execution">
+      <objectives>
+        <objective>Run the test suite using the execute_command tool</objective>
+        <objective>Document the results (pass/fail, coverage metrics)</objective>
+        <objective>Report the status</objective>
+      </objectives>
+      <activities>
+        <activity>Execute test suite</activity>
+        <activity>Collect results</activity>
+        <activity>Measure coverage</activity>
+        <activity>Document findings</activity>
+      </activities>
+      <deliverables>
+        <deliverable>Test execution report</deliverable>
+        <deliverable>Pass/fail status</deliverable>
+        <deliverable>Coverage metrics</deliverable>
+        <deliverable>Performance data</deliverable>
+      </deliverables>
+    </phase>
+
+    <phase number="4" name="failure_handling">
+      <when_tests_fail>
+        <step number="1">
+          <title>Document Failures</title>
+          <items>
+            <item>Error messages</item>
+            <item>Stack traces</item>
+            <item>Relevant context</item>
+            <item>Reproduction steps</item>
+          </items>
+        </step>
+
+        <step number="2">
+          <title>Create Bug Reports</title>
+          <items>
+            <item>Clear description</item>
+            <item>Expected vs actual results</item>
+            <item>Test context</item>
+            <item>Environment details</item>
+          </items>
+        </step>
+
+        <step number="3">
+          <title>Coordinate Mode Handoffs</title>
+          <items>
+            <item>Switch to Debug mode to investigate root cause</item>
+            <item>Coordinate with Code mode for fixes</item>
+            <item>Re-test after fixes applied</item>
+          </items>
+        </step>
+      </when_tests_fail>
+
+      <handoff_triggers>
+        <trigger mode="debug">error_investigation_needed</trigger>
+        <trigger mode="code">fix_implementation_needed</trigger>
+        <trigger mode="architect">design_clarification_needed</trigger>
+      </handoff_triggers>
+    </phase>
+
+    <phase number="5" name="coverage_analysis">
+      <objectives>
+        <objective>Track coverage metrics</objective>
+        <objective>Identify gaps in test coverage</objective>
+        <objective>Plan for improvements</objective>
+        <objective>Prioritize based on risk and importance</objective>
+      </objectives>
+      <activities>
+        <activity>Measure code coverage</activity>
+        <activity>Identify untested paths</activity>
+        <activity>Analyze critical areas</activity>
+        <activity>Plan coverage improvements</activity>
+      </activities>
+      <metrics_to_track>
+        <metric>Line coverage</metric>
+        <metric>Branch coverage</metric>
+        <metric>Function coverage</metric>
+        <metric>Integration coverage</metric>
+      </metrics_to_track>
+    </phase>
+  </testing_process>
+
+  <documentation_requirements>
+    <document type="test_plan">
+      <must_include>
+        <item>Test strategy overview</item>
+        <item>Test cases list</item>
+        <item>Coverage goals</item>
+        <item>Dependencies and prerequisites</item>
+      </must_include>
+      <format><![CDATA[
+# Test Plan: [Feature Name]
+
+## Strategy
+[Testing approach and methodology]
+
+## Test Cases
+1. [Test case description]
+2. [Test case description]
+
+## Coverage Goals
+- [Coverage target and areas]
+
+## Dependencies
+- [Required setup, data, or components]
+      ]]></format>
+    </document>
+
+    <document type="test_results">
+      <must_include>
+        <item>Test runs summary</item>
+        <item>Pass/fail status</item>
+        <item>Coverage metrics</item>
+        <item>Issues found</item>
+      </must_include>
+      <format><![CDATA[
+# Test Results: [Test Run ID]
+
+## Summary
+- Total Tests: X
+- Passed: Y
+- Failed: Z
+- Coverage: N%
+
+## Failed Tests
+1. [Test name] - [Reason]
+
+## Issues Found
+- [Issue description]
+      ]]></format>
+    </document>
+
+    <document type="bug_report">
+      <must_include>
+        <item>Clear description</item>
+        <item>Test context</item>
+        <item>Expected results</item>
+        <item>Actual results</item>
+        <item>Reproduction steps</item>
+      </must_include>
+      <format><![CDATA[
+# Bug Report: [Issue Title]
+
+## Description
+[What went wrong]
+
+## Expected Behavior
+[What should happen]
+
+## Actual Behavior
+[What actually happened]
+
+## Test Context
+[Test that revealed the issue]
+
+## Reproduction Steps
+1. [Step]
+2. [Step]
+      ]]></format>
+    </document>
+
+    <document type="handoff_notes">
+      <must_include>
+        <item>Mode transitions</item>
+        <item>Context sharing</item>
+        <item>Action items</item>
+        <item>Follow-ups</item>
+      </must_include>
+      <format><![CDATA[
+# Handoff to [Mode Name]
+
+## Context
+[Background and current state]
+
+## Issue/Task
+[What needs to be done]
+
+## Details
+[Relevant information for the receiving mode]
+
+## Expected Outcome
+[What success looks like]
+      ]]></format>
+    </document>
+  </documentation_requirements>
+
+  <tdd_workflow>
+    <core_cycle>
+      <step number="1" state="red">Write Test (Red)</step>
+      <step number="2" state="fail">Run Test (Fails)</step>
+      <step number="3" state="implement">Handoff to Code Mode (Implement)</step>
+      <step number="4" state="green">Run Test (Green)</step>
+      <step number="5" state="refactor">Refactor if needed</step>
+      <step number="6" state="repeat">Repeat</step>
+    </core_cycle>
+
+    <best_practices>
+      <do_list>
+        <practice>Write tests before implementation</practice>
+        <practice>Start with simplest test case</practice>
+        <practice>One test at a time</practice>
+        <practice>Clear, descriptive test names</practice>
+        <practice>Test one thing per test</practice>
+        <practice>Keep tests independent</practice>
+        <practice>Make tests repeatable</practice>
+      </do_list>
+
+      <dont_list>
+        <practice>Write implementation before tests</practice>
+        <practice>Skip failing test step</practice>
+        <practice>Write multiple tests at once</practice>
+        <practice>Make tests dependent on each other</practice>
+        <practice>Test implementation details</practice>
+        <practice>Ignore failing tests</practice>
+      </dont_list>
+    </best_practices>
+  </tdd_workflow>
+
+  <quality_assurance_principles>
+    <test_quality>
+      <characteristics>
+        <characteristic name="clear">Easy to understand what's being tested</characteristic>
+        <characteristic name="focused">Tests one specific behavior</characteristic>
+        <characteristic name="independent">Can run in any order</characteristic>
+        <characteristic name="repeatable">Same result every time</characteristic>
+        <characteristic name="fast">Runs quickly</characteristic>
+        <characteristic name="automated">No manual intervention</characteristic>
+      </characteristics>
+    </test_quality>
+
+    <coverage_goals>
+      <minimum_targets>
+        <target area="critical_paths">100%</target>
+        <target area="core_functionality">90%+</target>
+        <target area="edge_cases">80%+</target>
+        <target area="overall_project">80%+</target>
+      </minimum_targets>
+
+      <priority_areas>
+        <area>Security features</area>
+        <area>Data integrity</area>
+        <area>Error handling</area>
+        <area>User-facing features</area>
+        <area>Integration points</area>
+      </priority_areas>
+    </coverage_goals>
+
+    <testing_levels>
+      <level name="unit">
+        <scope>Individual functions/methods</scope>
+        <characteristics>
+          <characteristic>Isolated behavior</characteristic>
+          <characteristic>Fast execution</characteristic>
+          <characteristic>High coverage</characteristic>
+        </characteristics>
+      </level>
+
+      <level name="integration">
+        <scope>Component interaction</scope>
+        <characteristics>
+          <characteristic>System behavior</characteristic>
+          <characteristic>Moderate speed</characteristic>
+          <characteristic>Critical paths</characteristic>
+        </characteristics>
+      </level>
+
+      <level name="end_to_end">
+        <scope>Full user workflows</scope>
+        <characteristics>
+          <characteristic>System integration</characteristic>
+          <characteristic>Slower execution</characteristic>
+          <characteristic>Key scenarios</characteristic>
+        </characteristics>
+      </level>
+    </testing_levels>
+  </quality_assurance_principles>
+
+  <continuous_improvement>
+    <metrics_to_monitor>
+      <metric>Test pass rate</metric>
+      <metric>Coverage percentage</metric>
+      <metric>Test execution time</metric>
+      <metric>Defect detection rate</metric>
+      <metric>False positive rate</metric>
+    </metrics_to_monitor>
+
+    <regular_activities>
+      <activity>Review and update test cases</activity>
+      <activity>Identify gaps in coverage</activity>
+      <activity>Optimize slow tests</activity>
+      <activity>Remove obsolete tests</activity>
+      <activity>Update documentation</activity>
+    </regular_activities>
+
+    <success_indicators>
+      <indicator>High pass rate</indicator>
+      <indicator>Good coverage</indicator>
+      <indicator>Fast execution</indicator>
+      <indicator>Clear documentation</indicator>
+      <indicator>Effective bug detection</indicator>
+    </success_indicators>
+  </continuous_improvement>
+</testing_strategy>

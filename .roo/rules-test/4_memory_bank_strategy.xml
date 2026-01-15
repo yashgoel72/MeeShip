@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<memory_bank_strategy>
+  <overview>
+    Strategy and workflow for Test mode to interact with the Memory Bank system,
+    including initialization, querying, updates, and integration with Memory Query mode.
+  </overview>
+
+  <initialization>
+    <memory_bank_check>
+      <thinking_process><![CDATA[
+CHECK FOR MEMORY BANK:
+- First, check if the memory-bank/ directory exists
+- If memory-bank DOES exist, skip immediately to if_memory_bank_exists
+      ]]></thinking_process>
+
+      <at_start_of_task>
+        <step number="1">Verify memory-bank/ directory exists</step>
+        <step number="2">If exists → Load all Memory Bank files</step>
+        <step number="3">If not exists → Inform user and offer to create</step>
+      </at_start_of_task>
+    </memory_bank_check>
+
+    <if_no_memory_bank>
+      <user_notification>
+        No Memory Bank was found. I recommend creating one to maintain project context.
+        Would you like to switch to Architect mode to do this?
+      </user_notification>
+
+      <conditional_actions>
+        <if_user_declines>
+          <thinking><![CDATA[
+I need to proceed with the task without Memory Bank functionality.
+          ]]></thinking>
+          <actions>
+            <action>Inform the user that the Memory Bank will not be created</action>
+            <action>Set the status to '[MEMORY BANK: INACTIVE]'</action>
+            <action>Proceed with the task using the current context if needed</action>
+            <action>If no task is provided, use the ask_followup_question tool</action>
+          </actions>
+        </if_user_declines>
+
+        <if_user_agrees>
+          <actions>
+            <action>Switch to Architect mode to create the Memory Bank</action>
+            <action>Wait for completion</action>
+            <action>Load newly created Memory Bank</action>
+            <action>Set status to '[MEMORY BANK: ACTIVE]'</action>
+            <action>Resume testing task</action>
+          </actions>
+        </if_user_agrees>
+      </conditional_actions>
+    </if_no_memory_bank>
+
+    <if_memory_bank_exists>
+      <memory_query_integration>
+        <overview>
+          USE MEMORY QUERY MODE FOR CONTEXT RETRIEVAL
+        </overview>
+
+        <session_state_tracking>
+          <critical_rule>
+            PREVENT REDUNDANT MEMORY QUERIES:
+            - Check if memory has been consulted in current session
+            - If status is [MEMORY BANK: CONSULTED], skip query and use existing context
+            - Only query if status is [MEMORY BANK: ACTIVE]
+            - After querying, update status to [MEMORY BANK: CONSULTED]
+          </critical_rule>
+
+          <status_states>
+            <state name="INACTIVE">Memory Bank does not exist in workspace</state>
+            <state name="ACTIVE">Memory Bank exists but not yet consulted this session</state>
+            <state name="CONSULTED">Memory Bank has been queried in this session</state>
+          </status_states>
+        </session_state_tracking>
+
+        <thinking><![CDATA[
+Memory Bank exists. Instead of reading all files (risk of context overflow),
+I should use Memory Query mode to extract only relevant information for testing.
+        ]]></thinking>
+
+        <decision_point>
+          Determine if task requires memory bank knowledge
+        </decision_point>
+
+        <check_consulted_status>
+          <rule>Before querying Memory Bank, check current session state</rule>
+          <if_status_is_consulted>
+            <action>Skip memory query - context already loaded in session</action>
+            <action>Use existing knowledge from previous consultation</action>
+            <action>Maintain [MEMORY BANK: CONSULTED] status</action>
+            <note>This prevents redundant queries and saves time/tokens</note>
+          </if_status_is_consulted>
+          <if_status_is_active>
+            <action>Proceed with memory query decision logic below</action>
+          </if_status_is_active>
+        </check_consulted_status>
+
+        <if_task_requires_memory_bank>
+          <examples_requiring_memory_bank>
+            <example>Writing tests (check testing patterns)</example>
+            <example>Understanding features (verify requirements)</example>
+            <example>Setting coverage goals (review decisions)</example>
+            <example>Investigating failures (lookup related code)</example>
+            <example>Coordinating with Code mode (check constraints)</example>
+          </examples_requiring_memory_bank>
+
+          <action_query_memory_query_mode>
+            <step number="1">
+              <title>Use Memory Query Mode</title>
+              <code><![CDATA[
+<new_task>
+<mode>memory-query</mode>
+<message>Need to extract relevant context for: {brief testing task}</message>
+</new_task>
+              ]]></code>
+            </step>
+
+            <step number="2">
+              <title>Provide Structured Query</title>
+              <description>Once in Memory Query mode</description>
+              <format><![CDATA[
+Query: {specific question about testing or features}
+Context: {what you're testing}
+ParentMode: test
+              ]]></format>
+            </step>
+
+            <step number="3">
+              <title>Receive Condensed Response</title>
+              <description>Max 500 lines vs 2000+ from full read</description>
+              <response_structure>
+                <item>Key Facts</item>
+                <item>Detailed Context</item>
+                <item>Constraints &amp; Warnings</item>
+                <item>Recommendations</item>
+                <item>Citations</item>
+              </response_structure>
+            </step>
+
+            <step number="4">
+              <title>Return to Test Mode</title>
+              <description>Memory Query mode will switch you back</description>
+            </step>
+
+            <step number="5">
+              <title>Apply Retrieved Knowledge</title>
+              <description>Apply to test development</description>
+            </step>
+
+            <step number="6">
+              <title>Set Status to CONSULTED</title>
+              <status>[MEMORY BANK: CONSULTED]</status>
+              <description>Proceed with testing. Memory has been queried in this session.</description>
+            </step>
+          </action_query_memory_query_mode>
+        </if_task_requires_memory_bank>
+
+        <if_task_does_not_require_memory_bank>
+          <examples_not_requiring_memory_bank>
+            <example>Running existing tests</example>
+            <example>Basic test execution</example>
+            <example>Standard test patterns</example>
+          </examples_not_requiring_memory_bank>
+
+          <action>
+            <step number="1">Maintain current status (ACTIVE or CONSULTED as appropriate)</step>
+            <step number="2">Proceed with testing directly without querying memory</step>
+            <step number="3">If no task provided, use ask_followup_question tool</step>
+            <note>Do not change CONSULTED back to ACTIVE if memory was already queried</note>
+          </action>
+        </if_task_does_not_require_memory_bank>
+
+        <fallback_strategy>
+          <description>If Memory Query mode is unavailable</description>
+          <step number="1">Read memory bank files directly (legacy behavior)</step>
+          <step number="2">Focus on most relevant files first</step>
+          <step number="3">Note: Higher risk of context overflow</step>
+        </fallback_strategy>
+      </memory_query_integration>
+
+      <context_integration>
+        <after_querying_memory_bank>
+          <assessment>
+            <item>Assess Current State: What testing is in progress?</item>
+            <item>Identify Test Requirements: What needs testing?</item>
+            <item>Check Patterns: What testing patterns apply?</item>
+            <item>Review Progress: What tests are completed?</item>
+            <item>Note Open Issues: Any blockers or test failures?</item>
+          </assessment>
+        </after_querying_memory_bank>
+      </context_integration>
+    </if_memory_bank_exists>
+  </initialization>
+
+  <memory_bank_updates_during_testing>
+    <update_triggers>
+      <trigger>Test Creation: New tests written (TDD)</trigger>
+      <trigger>Test Execution: Tests run with results</trigger>
+      <trigger>Test Failures: Failures encountered</trigger>
+      <trigger>Coverage Changes: Coverage metrics change significantly</trigger>
+      <trigger>Pattern Discovery: New testing patterns identified</trigger>
+      <trigger>Decision Made: Testing strategy decision</trigger>
+    </update_triggers>
+
+    <update_strategy>
+      <continuous_updates>
+        <guideline>Don't wait until end to update</guideline>
+        <guideline>Update as significant test events occur</guideline>
+        <guideline>Preserve test context</guideline>
+        <guideline>Document test decisions in real-time</guideline>
+      </continuous_updates>
+    </update_strategy>
+
+    <file_specific_updates>
+      <file name="activeContext.md">
+        <update_for>
+          <item>Current testing focus</item>
+          <item>Recent test results</item>
+          <item>Test failures and investigations</item>
+          <item>Coverage progress</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Test] [Summary]</format>
+        <example><![CDATA[
+[2025-10-26 12:30:00] - [Test] Created unit tests for authentication middleware. Coverage: 85%. 2 edge cases pending.
+        ]]></example>
+      </file>
+
+      <file name="decisionLog.md">
+        <update_for>
+          <item>Testing strategy decisions</item>
+          <item>Test framework choices</item>
+          <item>Coverage goal adjustments</item>
+          <item>Test pattern adoptions</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Test Decision] [Summary]</format>
+        <example><![CDATA[
+[2025-10-26 12:35:00] - [Test Decision] Adopted TDD approach for new features. Write tests before implementation to ensure requirements are clear and testable.
+        ]]></example>
+      </file>
+
+      <file name="progress.md">
+        <update_for>
+          <item>Test completions</item>
+          <item>Coverage milestones</item>
+          <item>Test failures resolved</item>
+          <item>Testing phase transitions</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Test Progress] [Summary]</format>
+        <example><![CDATA[
+[2025-10-26 12:40:00] - [Test Progress] Completed unit test suite for user module. 45/45 tests passing. Coverage: 92%.
+        ]]></example>
+      </file>
+
+      <file name="systemPatterns.md">
+        <update_for>
+          <item>Testing patterns used</item>
+          <item>Test organization structure</item>
+          <item>Testing best practices</item>
+          <item>Reusable test utilities</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Test Pattern] [Description]</format>
+        <example><![CDATA[
+[2025-10-26 12:45:00] - [Test Pattern] Implementing AAA pattern (Arrange-Act-Assert) for all unit tests to improve readability and maintainability.
+        ]]></example>
+      </file>
+
+      <file name="productContext.md">
+        <update_for>
+          <item>Major test coverage achievements</item>
+          <item>Testing framework additions</item>
+          <item>Quality metrics improvements</item>
+        </update_for>
+        <format>[YYYY-MM-DD HH:MM:SS] - [Test Context] [Summary]</format>
+        <note>Less frequent - only for significant changes</note>
+        <example><![CDATA[
+[2025-10-26 13:00:00] - [Test Context] Implemented comprehensive test suite with Jest. Achieved 85% overall coverage with focus on critical paths.
+        ]]></example>
+      </file>
+    </file_specific_updates>
+  </memory_bank_updates_during_testing>
+
+  <detailed_update_guidelines>
+    <update_frequency>
+      UPDATE MEMORY BANK THROUGHOUT THE CHAT SESSION, WHEN SIGNIFICANT CHANGES OCCUR IN THE PROJECT.
+    </update_frequency>
+
+    <decision_log_updates>
+      <trigger>
+        When a significant testing decision is made (test strategy, framework choice,
+        coverage goals, etc.). Use your judgment to determine significance.
+      </trigger>
+      <action>
+        <thinking><![CDATA[
+I need to update decisionLog.md with a decision, the rationale, and any implications.
+        ]]></thinking>
+        <instruction>
+          Use insert_content to *append* new information. Never overwrite existing entries.
+          Always include a timestamp.
+        </instruction>
+      </action>
+      <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</format>
+    </decision_log_updates>
+
+    <product_context_updates>
+      <trigger>
+        When the high-level project testing approach, quality goals, or test infrastructure
+        changes significantly. Use your judgment to determine significance.
+      </trigger>
+      <action>
+        <thinking><![CDATA[
+A fundamental change has occurred which warrants an update to productContext.md.
+        ]]></thinking>
+        <instruction>
+          Use insert_content to *append* new information or use apply_diff to modify
+          existing entries if necessary. Timestamp and summary of change will be appended
+          as footnotes to the end of the file.
+        </instruction>
+      </action>
+      <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change]</format>
+    </product_context_updates>
+
+    <system_patterns_updates>
+      <trigger>
+        When new testing patterns are introduced or existing ones are modified.
+        Use your judgement.
+      </trigger>
+      <action>
+        <thinking><![CDATA[
+I need to update systemPatterns.md with a brief summary and time stamp.
+        ]]></thinking>
+        <instruction>
+          Use insert_content to *append* new patterns or use apply_diff to modify
+          existing entries if warranted. Always include a timestamp.
+        </instruction>
+      </action>
+      <format>[YYYY-MM-DD HH:MM:SS] - [Description of Pattern/Change]</format>
+    </system_patterns_updates>
+
+    <active_context_updates>
+      <trigger>
+        When the current testing focus changes, or when significant progress is made.
+        Use your judgement.
+      </trigger>
+      <action>
+        <thinking><![CDATA[
+I need to update activeContext.md with a brief summary and time stamp.
+        ]]></thinking>
+        <instruction>
+          Use insert_content to *append* to the relevant section (Current Focus, Recent Changes,
+          Open Questions/Issues) or use apply_diff to modify existing entries if warranted.
+          Always include a timestamp.
+        </instruction>
+      </action>
+      <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</format>
+    </active_context_updates>
+
+    <progress_updates>
+      <trigger>
+        When a test task begins, is completed, or if there are any changes.
+        Use your judgement.
+      </trigger>
+      <action>
+        <thinking><![CDATA[
+I need to update progress.md with a brief summary and time stamp.
+        ]]></thinking>
+        <instruction>
+          Use insert_content to *append* the new entry, never overwrite existing entries.
+          Always include a timestamp.
+        </instruction>
+      </action>
+      <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</format>
+    </progress_updates>
+  </detailed_update_guidelines>
+
+  <general_rules>
+    <status_prefix>
+      <description>EVERY response must begin with:</description>
+      <format>[MEMORY BANK: ACTIVE/INACTIVE]</format>
+      <purpose>
+        This clearly indicates Memory Bank availability and testing context.
+      </purpose>
+    </status_prefix>
+
+    <best_practices>
+      <do_list>
+        <practice>Load Memory Bank before starting testing</practice>
+        <practice>Update after test execution</practice>
+        <practice>Document test failures</practice>
+        <practice>Record coverage metrics</practice>
+        <practice>Track testing decisions</practice>
+        <practice>Preserve test context</practice>
+      </do_list>
+
+      <dont_list>
+        <practice>Skip Memory Bank loading</practice>
+        <practice>Wait until end to update</practice>
+        <practice>Lose test context</practice>
+        <practice>Forget to document failures</practice>
+        <practice>Ignore coverage data</practice>
+        <practice>Miss testing patterns</practice>
+      </dont_list>
+    </best_practices>
+  </general_rules>
+
+  <integration_with_testing_workflow>
+    <testing_plus_memory_bank_pattern><![CDATA[
+1. Load Memory Bank
+   ↓
+2. Analyze requirements + context
+   ↓
+3. Write tests (TDD)
+   ↓
+4. Update activeContext.md with tests
+   ↓
+5. Run tests
+   ↓
+6. Update progress.md with results
+   ↓
+7. If failures → Update activeContext.md
+   ↓
+8. Handoff to Code/Debug if needed
+   ↓
+9. Re-test after fixes
+   ↓
+10. Final Memory Bank update
+    ↓
+11. Present results
+    ]]></testing_plus_memory_bank_pattern>
+
+    <context_preservation_priority>
+      <high_priority>
+        <item>Test failures and errors</item>
+        <item>Coverage metrics</item>
+        <item>Critical test cases</item>
+        <item>Testing blockers</item>
+        <item>Mode handoffs</item>
+      </high_priority>
+
+      <medium_priority>
+        <item>Test completions</item>
+        <item>Coverage improvements</item>
+        <item>Pattern usage</item>
+        <item>Progress notes</item>
+      </medium_priority>
+
+      <low_priority>
+        <item>Routine updates</item>
+        <item>Expected passes</item>
+        <item>Standard procedures</item>
+      </low_priority>
+    </context_preservation_priority>
+  </integration_with_testing_workflow>
+</memory_bank_strategy>

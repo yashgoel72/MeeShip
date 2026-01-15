@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<memory_query_integration>
+  <overview>
+    Instead of reading all memory bank files directly (which risks context overflow), 
+    Code mode should query the Memory Query mode for targeted information extraction.
+    This provides max 500 lines of condensed, relevant information vs 2000+ from full memory bank read.
+  </overview>
+
+  <purpose>
+    Enable efficient, targeted information retrieval from Memory Bank without context overflow,
+    while maintaining access to comprehensive project knowledge.
+  </purpose>
+
+  <when_to_query>
+    <description>ALWAYS query Memory Query mode BEFORE performing these tasks:</description>
+    
+    <mandatory_scenarios>
+      <scenario priority="critical">Editing any files (check for constraints)</scenario>
+      <scenario priority="critical">Implementing new patterns (lookup architectural guidance)</scenario>
+      <scenario priority="high">Creating new resources (verify naming conventions)</scenario>
+      <scenario priority="high">Making architectural decisions (check existing decisions)</scenario>
+    </mandatory_scenarios>
+  </when_to_query>
+
+  <query_workflow>
+    <step number="1">
+      <title>Identify Query Type</title>
+      <description>Determine which type of query you need</description>
+      
+      <query_types>
+        <type name="File Editing Query">Check if file can be edited</type>
+        <type name="Pattern Lookup Query">Get architectural patterns</type>
+        <type name="Naming Convention Query">Verify resource naming</type>
+        <type name="Decision Rationale Query">Understand past decisions</type>
+        <type name="Current Work Query">Get status of ongoing work</type>
+      </query_types>
+    </step>
+
+    <step number="2">
+      <title>Use Memory Query Mode</title>
+      <description>Use the new_task tool to enter Memory Query mode</description>
+      
+      <tool_usage>
+        <![CDATA[
+<new_task>
+<mode>memory-query</mode>
+<message>Need to check constraints for editing {filepath}</message>
+</new_task>
+        ]]>
+      </tool_usage>
+    </step>
+
+    <step number="3">
+      <title>Provide Structured Query</title>
+      <description>Once in Memory Query mode, provide query in this format</description>
+      
+      <query_format>
+        <![CDATA[
+Query: {specific question about what you need to know}
+Context: {what you're trying to accomplish}
+ParentMode: code
+        ]]>
+      </query_format>
+    </step>
+
+    <step number="4">
+      <title>Receive Response</title>
+      <description>Memory Query mode returns condensed, targeted information</description>
+      
+      <response_components>
+        <component>Key facts (max 10 points)</component>
+        <component>Detailed context (condensed)</component>
+        <component>Constraints &amp; warnings (highlighted)</component>
+        <component>Recommendations (actionable)</component>
+        <component>Citations (with line numbers)</component>
+      </response_components>
+    </step>
+
+    <step number="5">
+      <title>Apply to Task</title>
+      <description>Use the received information to guide your implementation</description>
+    </step>
+  </query_workflow>
+
+  <query_templates>
+    <template name="File Editing Check" priority="critical">
+      <when_to_use>
+        Before editing ANY file, especially in these directories:
+        - HostedMigrationService/HmsWebRole.CosmicDeploy/configV2/
+        - HostedMigrationService/Hms.Ev2Compiler/Ev2Compiler/ServiceGroupRoot/
+      </when_to_use>
+      
+      <query_example>
+        <![CDATA[
+Query: What are the constraints for editing {filepath}?
+Context: User requested changes to {filepath}
+ParentMode: code
+        ]]>
+      </query_example>
+    </template>
+
+    <template name="Pattern Lookup" priority="high">
+      <when_to_use>When implementing new features or following patterns</when_to_use>
+      
+      <query_example>
+        <![CDATA[
+Query: What patterns should I follow for {task type}?
+Context: Implementing {specific feature or task}
+ParentMode: code
+        ]]>
+      </query_example>
+      
+      <example_queries>
+        <example>What patterns should I follow for cloud onboarding?</example>
+        <example>What patterns should I follow for adding new validators?</example>
+        <example>What patterns should I follow for external service integration?</example>
+      </example_queries>
+    </template>
+
+    <template name="Naming Convention" priority="high">
+      <when_to_use>When creating new resources, files, or configurations</when_to_use>
+      
+      <query_example>
+        <![CDATA[
+Query: What naming conventions apply to {resource type}?
+Context: Creating new {resource type} for {purpose}
+ParentMode: code
+        ]]>
+      </query_example>
+      
+      <example_queries>
+        <example>What naming conventions apply to Key Vault resources?</example>
+        <example>What naming conventions apply to configuration files?</example>
+        <example>What naming conventions apply to C# classes for new clouds?</example>
+      </example_queries>
+    </template>
+
+    <template name="Decision Context" priority="medium">
+      <when_to_use>When you need to understand why something was done a certain way</when_to_use>
+      
+      <query_example>
+        <![CDATA[
+Query: Why did we {decision}?
+Context: Need to understand rationale for {implementation detail}
+ParentMode: code
+        ]]>
+      </query_example>
+      
+      <example_queries>
+        <example>Why did we migrate to Cosmic platform?</example>
+        <example>Why did we move contact migration to TMT?</example>
+        <example>Why did we choose Geneva for monitoring?</example>
+      </example_queries>
+    </template>
+
+    <template name="Current Status" priority="medium">
+      <when_to_use>When you need to know the current state of work</when_to_use>
+      
+      <query_example>
+        <![CDATA[
+Query: What is the current status of {topic}?
+Context: Planning work on {related area}
+ParentMode: code
+        ]]>
+      </query_example>
+      
+      <example_queries>
+        <example>What is the current status of deprecated components?</example>
+        <example>What are the open questions about certificate management?</example>
+        <example>What is the current deployment status across clouds?</example>
+      </example_queries>
+    </template>
+  </query_templates>
+
+  <workflow_integration>
+    <standard_code_task_workflow>
+      <step number="1">Receive user task</step>
+      <step number="2">⚠️ IDENTIFY if task requires memory bank knowledge</step>
+      <step number="3">
+        If yes:
+        <substep>a. Switch to memory-query mode</substep>
+        <substep>b. Provide structured query</substep>
+        <substep>c. Receive condensed response</substep>
+        <substep>d. Switch back to code mode</substep>
+        <substep>e. Apply knowledge to task</substep>
+      </step>
+      <step number="4">Proceed with implementation</step>
+      <step number="5">Update memory bank if significant changes made</step>
+    </standard_code_task_workflow>
+  </workflow_integration>
+
+  <critical_use_cases>
+    <use_case name="ConfigV2 File Edit Request">
+      <user_request>Update config.prod.eastus.json to add new setting</user_request>
+      
+      <your_workflow>
+        <step number="1">Switch to memory-query mode</step>
+        <step number="2">
+          Query: "What are the constraints for editing HostedMigrationService/HmsWebRole.CosmicDeploy/configV2/config.prod.eastus.json?"
+        </step>
+        <step number="3">Receive response: ⚠️ AUTO-GENERATED FILE - DO NOT EDIT</step>
+        <step number="4">Inform user of constraint</step>
+        <step number="5">
+          Guide user to correct workflow:
+          - Edit source .cs files in Ev2Compiler
+          - Rebuild Ev2Compiler
+          - Commit both source and generated files
+        </step>
+      </your_workflow>
+    </use_case>
+
+    <use_case name="Cloud Onboarding Task">
+      <user_request>Add support for new sovereign cloud</user_request>
+      
+      <your_workflow>
+        <step number="1">Switch to memory-query mode</step>
+        <step number="2">Query: "What patterns should I follow for cloud onboarding?"</step>
+        <step number="3">Receive response: Two-phase deployment, dual-region pattern, etc.</step>
+        <step number="4">Query: "What naming conventions apply to cloud resources?"</step>
+        <step number="5">Receive response: Key Vault naming, region codes, etc.</step>
+        <step number="6">Implement following established patterns</step>
+        <step number="7">Update memory bank with new cloud details</step>
+      </your_workflow>
+    </use_case>
+
+    <use_case name="Adding New Validator">
+      <user_request>Create a new validator for checking user permissions</user_request>
+      
+      <your_workflow>
+        <step number="1">Switch to memory-query mode</step>
+        <step number="2">Query: "What patterns should I follow for adding new validators?"</step>
+        <step number="3">Receive response: IValidator interface, CollectiveValidator orchestration, etc.</step>
+        <step number="4">Implement following validator pipeline pattern</step>
+        <step number="5">Add tests following existing validator test patterns</step>
+      </your_workflow>
+    </use_case>
+  </critical_use_cases>
+
+  <benefits>
+    <benefit>✅ Reduced Context Overflow: Query returns max 500 lines vs 2000+ from full memory bank</benefit>
+    <benefit>✅ Targeted Information: Get only what's relevant to your current task</benefit>
+    <benefit>✅ Citations Included: Easy to verify and cross-reference</benefit>
+    <benefit>✅ Actionable Guidance: Receive recommendations, not just facts</benefit>
+    <benefit>✅ Single Source of Truth: Memory bank remains authoritative</benefit>
+    <benefit>✅ Maintainable: Update memory bank once, all modes benefit</benefit>
+  </benefits>
+
+  <fallback_strategy>
+    <description>If Memory Query mode is unavailable or query fails</description>
+    
+    <steps>
+      <step>Read memory bank files directly (legacy behavior)</step>
+      <step>Focus on most relevant files first</step>
+      <step>Note: Higher risk of context overflow</step>
+    </steps>
+  </fallback_strategy>
+
+  <practical_examples>
+    <example name="Before Editing ConfigV2 File">
+      <new_task_example>
+        <![CDATA[
+<new_task>
+<mode>memory-query</mode>
+<message>Need to check if I can edit config.prod.eastus.json</message>
+</new_task>
+        ]]>
+      </new_task_example>
+      
+      <query_in_memory_mode>
+        <![CDATA[
+Query: Can I edit HostedMigrationService/HmsWebRole.CosmicDeploy/configV2/config.prod.eastus.json?
+Context: User wants to add new configuration setting for production
+ParentMode: code
+        ]]>
+      </query_in_memory_mode>
+    </example>
+
+    <example name="Looking Up Cloud Onboarding Pattern">
+      <new_task_example>
+        <![CDATA[
+<new_task>
+<mode>memory-query</mode>
+<message>Need cloud onboarding patterns for new region</message>
+</new_task>
+        ]]>
+      </new_task_example>
+      
+      <query_in_memory_mode>
+        <![CDATA[
+Query: What patterns apply to onboarding a new sovereign cloud?
+Context: Planning to add new cloud environment with dual regions
+ParentMode: code
+        ]]>
+      </query_in_memory_mode>
+    </example>
+
+    <example name="Verifying Naming Convention">
+      <new_task_example>
+        <![CDATA[
+<new_task>
+<mode>memory-query</mode>
+<message>Need to verify Key Vault naming convention</message>
+</new_task>
+        ]]>
+      </new_task_example>
+      
+      <query_in_memory_mode>
+        <![CDATA[
+Query: What naming conventions apply to Key Vault resources?
+Context: Creating Key Vaults for new cloud regions
+ParentMode: code
+        ]]>
+      </query_in_memory_mode>
+    </example>
+  </practical_examples>
+
+  <important_notes>
+    <note priority="critical">
+      This integration is MANDATORY for:
+      - Editing files in configV2/ or ServiceGroupRoot/
+      - Cloud onboarding tasks
+      - Creating new architectural components
+      - Resource naming
+    </note>
+
+    <note priority="high">
+      Memory Query mode is designed to be fast and focused
+    </note>
+
+    <note priority="high">
+      Always provide context in your queries for better results
+    </note>
+
+    <note priority="medium">
+      Use citations from response to verify information
+    </note>
+
+    <note priority="medium">
+      Update memory bank after making significant changes
+    </note>
+  </important_notes>
+
+  <last_updated>2025-11-07</last_updated>
+</memory_query_integration>

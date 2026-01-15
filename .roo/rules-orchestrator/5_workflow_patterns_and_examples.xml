@@ -1,0 +1,761 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow_patterns_and_examples>
+  <overview>
+    Comprehensive workflow patterns, delegation protocols, and complete examples
+    for orchestrating complex multi-mode tasks with Task Planner integration.
+  </overview>
+
+  <common_workflow_patterns>
+    <pattern name="sequential_pipeline">
+      <description>Linear progression through specialized modes</description>
+      <when_to_use>
+        <use_case>Feature development with clear dependencies</use_case>
+        <use_case>Step-by-step transformations</use_case>
+        <use_case>Ordered processing requirements</use_case>
+      </when_to_use>
+      
+      <structure>
+        <phase>1. Plan (Architect or Task Planner)</phase>
+        <phase>2. Implement (Code)</phase>
+        <phase>3. Execute/Debug (Execute and/or Debug)</phase>
+        <phase>4. Test (Test mode if available)</phase>
+        <phase>5. Document (Documentation mode if available)</phase>
+      </structure>
+
+      <critical_note>
+        EXECUTE/DEBUG PHASE IS MANDATORY after implementation.
+        Never skip runtime verification - compilation success ≠ runtime success.
+      </critical_note>
+
+      <example_flow>
+        User Request → Architect (design) → Code (implement) → Execute (verify runtime) 
+        → Debug (if issues) → Test (validate) → Documentation (document) → Complete
+      </example_flow>
+    </pattern>
+
+    <pattern name="parallel_branches">
+      <description>Independent tasks executed simultaneously</description>
+      <when_to_use>
+        <use_case>Multiple independent features</use_case>
+        <use_case>Separate component development</use_case>
+        <use_case>Non-blocking work streams</use_case>
+      </when_to_use>
+
+      <structure>
+        <phase>1. Plan branches (Task Planner for complex scenarios)</phase>
+        <phase>2. Execute Branch A (Mode X)</phase>
+        <phase>3. Execute Branch B (Mode Y) - can run conceptually parallel</phase>
+        <phase>4. Execute/Debug each branch</phase>
+        <phase>5. Integrate results</phase>
+        <phase>6. Final Execute/Debug</phase>
+      </structure>
+
+      <example_flow>
+        User Request → Task Planner (identify branches) 
+        → Code (Frontend Component) + Code (Backend API) 
+        → Execute (Frontend) + Execute (Backend)
+        → Architect (Integration Design)
+        → Code (Integration Layer)
+        → Execute (Full Stack Test)
+        → Complete
+      </example_flow>
+    </pattern>
+
+    <pattern name="iterative_refinement">
+      <description>Repeated cycles of improvement</description>
+      <when_to_use>
+        <use_case>Performance optimization</use_case>
+        <use_case>Incremental feature enhancement</use_case>
+        <use_case>Debugging complex issues</use_case>
+      </when_to_use>
+
+      <structure>
+        <cycle>1. Analyze (current state)</cycle>
+        <cycle>2. Plan improvement (Architect or specific mode)</cycle>
+        <cycle>3. Implement change (Code)</cycle>
+        <cycle>4. Execute/Test (verify improvement)</cycle>
+        <cycle>5. Measure results</cycle>
+        <cycle>6. Repeat if needed</cycle>
+      </structure>
+
+      <example_flow>
+        User Request → Debug (identify bottleneck) → Architect (optimization strategy)
+        → Code (implement optimization) → Execute (measure performance)
+        → [If not sufficient: Debug → Architect → Code → Execute]
+        → Complete
+      </example_flow>
+    </pattern>
+
+    <pattern name="hierarchical_decomposition">
+      <description>Breaking complex tasks into managed subtasks</description>
+      <when_to_use>
+        <use_case>Large features requiring 4+ mode executions</use_case>
+        <use_case>Multi-layer architectural changes</use_case>
+        <use_case>Complex workflows needing coordination</use_case>
+      </when_to_use>
+
+      <structure>
+        <level>1. Master Orchestrator analyzes request</level>
+        <level>2. Delegates to Task Planner for detailed plan</level>
+        <level>3. Executes plan phases sequentially</level>
+        <level>4. Each phase may use sub-orchestrator if complex</level>
+        <level>5. Integrates and verifies results</level>
+        <level>6. Execute/Debug final integration</level>
+      </structure>
+
+      <example_flow>
+        User Request (Complex Feature) → Task Planner (create execution plan)
+        → Execute Phase 1 (Database Schema via sub-orchestrator)
+          → Architect → Code → Execute → Test
+        → Execute Phase 2 (API Layer via sub-orchestrator)
+          → Architect → Code → Execute → Test
+        → Execute Phase 3 (Frontend via sub-orchestrator)
+          → Code → Execute → Test
+        → Final Integration (Orchestrator)
+        → Execute (Full Stack Verification)
+        → Complete
+      </example_flow>
+    </pattern>
+  </common_workflow_patterns>
+
+  <delegation_protocols>
+    <delegation_best_practices>
+      <practice priority="critical">
+        <name>Always Include Execute/Debug Phase</name>
+        <rule>After ANY code implementation, delegate to Execute or Debug mode</rule>
+        <rationale>
+          - Compilation ≠ Runtime success
+          - Catch runtime errors early
+          - Verify actual behavior
+          - Validate integration points
+        </rationale>
+      </practice>
+
+      <practice priority="high">
+        <name>Provide Complete Context</name>
+        <rule>Include all necessary information in delegation message</rule>
+        <what_to_include>
+          <item>Task objective and requirements</item>
+          <item>Relevant background from Memory Bank</item>
+          <item>Specific deliverables expected</item>
+          <item>Constraints or limitations</item>
+          <item>Files or areas to focus on</item>
+        </what_to_include>
+      </practice>
+
+      <practice priority="high">
+        <name>Use Clear Task Descriptions</name>
+        <rule>Be specific about what the mode should accomplish</rule>
+        <good_example>
+          "Implement JWT authentication middleware in src/middleware/auth.ts.
+          Use jsonwebtoken library, verify tokens from Authorization header,
+          attach user ID to request object."
+        </good_example>
+        <bad_example>
+          "Add authentication"
+        </bad_example>
+      </practice>
+
+      <practice priority="medium">
+        <name>Set Appropriate Scope</name>
+        <rule>Delegate focused, manageable tasks to modes</rule>
+        <guideline>If task requires 4+ different modes, consider Task Planner</guideline>
+        <guideline>Break down tasks that span multiple domains</guideline>
+      </practice>
+
+      <practice priority="medium">
+        <name>Track Delegation State</name>
+        <rule>Update Memory Bank before and after delegations</rule>
+        <before>Document what was delegated and why</before>
+        <after>Record results and any issues</after>
+      </practice>
+    </delegation_best_practices>
+
+    <handoff_protocol>
+      <pre_delegation>
+        <step number="1">
+          <action>Update Memory Bank activeContext.md</action>
+          <content>Document delegation about to occur</content>
+        </step>
+        <step number="2">
+          <action>Prepare delegation message</action>
+          <content>Include context, requirements, constraints</content>
+        </step>
+        <step number="3">
+          <action>Use new_task tool</action>
+          <content>Delegate to appropriate mode</content>
+        </step>
+      </pre_delegation>
+
+      <post_delegation>
+        <step number="1">
+          <action>Review mode output</action>
+          <content>Verify deliverables match requirements</content>
+        </step>
+        <step number="2">
+          <action>Update Memory Bank progress.md</action>
+          <content>Record completion and results</content>
+        </step>
+        <step number="3">
+          <action>Assess next steps</action>
+          <content>Determine if workflow continues or completes</content>
+        </step>
+        <step number="4">
+          <action>EXECUTE/DEBUG if code was changed</action>
+          <content>Verify runtime behavior before proceeding</content>
+        </step>
+      </post_delegation>
+
+      <context_preservation>
+        <critical_information>
+          <item>Current workflow phase</item>
+          <item>Completed subtasks</item>
+          <item>Active delegations</item>
+          <item>Pending dependencies</item>
+          <item>Known issues or blockers</item>
+          <item>Task Planner plans being executed</item>
+        </critical_information>
+
+        <update_frequency>
+          <rule>Before each delegation</rule>
+          <rule>After each mode returns</rule>
+          <rule>When workflow changes</rule>
+          <rule>At major milestones</rule>
+        </update_frequency>
+      </context_preservation>
+    </handoff_protocol>
+  </delegation_protocols>
+
+  <task_planner_integration_workflows>
+    <when_to_use_task_planner>
+      <scenario priority="high">
+        <trigger>Request requires 4+ coordinated mode executions</trigger>
+        <example>Full feature implementation with architecture, code, testing, docs</example>
+      </scenario>
+      <scenario priority="high">
+        <trigger>Complex multi-phase project</trigger>
+        <example>Database migration + API refactoring + frontend updates</example>
+      </scenario>
+      <scenario priority="high">
+        <trigger>Need to understand Memory Bank constraints first</trigger>
+        <example>Planning must respect architectural decisions and patterns</example>
+      </scenario>
+      <scenario priority="medium">
+        <trigger>Parallel work streams requiring coordination</trigger>
+        <example>Multiple independent features with integration point</example>
+      </scenario>
+    </when_to_use_task_planner>
+
+    <task_planner_workflow>
+      <step number="1">
+        <title>Delegate to Task Planner</title>
+        <template><![CDATA[
+<new_task>
+<mode>task-planner</mode>
+<message>
+Create an orchestration plan for: {high-level task description}
+
+Requirements:
+- {specific requirement 1}
+- {specific requirement 2}
+
+Constraints from Memory Bank:
+- {constraint 1 from Memory Bank query}
+- {constraint 2 from Memory Bank query}
+
+Expected Deliverables:
+- {deliverable 1}
+- {deliverable 2}
+</message>
+</new_task>
+        ]]></template>
+      </step>
+
+      <step number="2">
+        <title>Receive Machine-Readable Plan</title>
+        <description>Task Planner returns XML orchestration plan</description>
+        <plan_structure>
+          <element>Task breakdown with phases</element>
+          <element>Mode assignments for each task</element>
+          <element>Dependencies between tasks</element>
+          <element>Success criteria</element>
+          <element>Integration points</element>
+        </plan_structure>
+      </step>
+
+      <step number="3">
+        <title>Execute Plan Sequentially</title>
+        <description>Follow plan phases in order, respecting dependencies</description>
+        <execution_pattern>
+          For each phase in plan:
+            1. Delegate to assigned mode
+            2. EXECUTE/DEBUG if code changed
+            3. Verify deliverables
+            4. Update Memory Bank
+            5. Proceed to next phase
+        </execution_pattern>
+      </step>
+
+      <step number="4">
+        <title>Handle Plan Deviations</title>
+        <if_issue_occurs>
+          <action>Document deviation in Memory Bank</action>
+          <action>Assess impact on remaining phases</action>
+          <action>Adjust plan if needed (may re-consult Task Planner)</action>
+          <action>Continue execution with updated approach</action>
+        </if_issue_occurs>
+      </step>
+
+      <step number="5">
+        <title>Final Integration and Verification</title>
+        <description>After all phases complete</description>
+        <actions>
+          <action>Verify all deliverables present</action>
+          <action>EXECUTE full integration test</action>
+          <action>Update Memory Bank with final state</action>
+          <action>Complete orchestration</action>
+        </actions>
+      </step>
+    </task_planner_workflow>
+  </task_planner_integration_workflows>
+
+  <sub_orchestrator_pattern>
+    <overview>
+      Using new_task with orchestrator mode for complex subtasks requiring
+      their own multi-mode workflows
+    </overview>
+
+    <when_to_use>
+      <scenario>Subtask requires 3+ mode executions</scenario>
+      <scenario>Subtask has its own internal workflow</scenario>
+      <scenario>Need isolation of subtask complexity</scenario>
+      <scenario>Parallel orchestration of independent components</scenario>
+    </when_to_use>
+
+    <implementation>
+      <delegation_template><![CDATA[
+<new_task>
+<mode>orchestrator</mode>
+<message>
+[Sub-Orchestration Request]
+
+Task: {specific subtask requiring orchestration}
+
+Context from parent orchestration:
+- {relevant context item 1}
+- {relevant context item 2}
+
+Requirements:
+- {requirement 1}
+- {requirement 2}
+
+Expected Workflow:
+1. {expected phase 1}
+2. {expected phase 2}
+3. {expected phase 3}
+
+Deliverables:
+- {deliverable 1}
+- {deliverable 2}
+
+This is a sub-orchestration task. Please coordinate the necessary modes
+to complete this work and return results.
+</message>
+</new_task>
+      ]]></delegation_template>
+
+      <sub_orchestrator_responsibilities>
+        <responsibility>Coordinate modes for subtask</responsibility>
+        <responsibility>Manage subtask workflow</responsibility>
+        <responsibility>Update Memory Bank for subtask progress</responsibility>
+        <responsibility>Return consolidated results to parent</responsibility>
+      </sub_orchestrator_responsibilities>
+
+      <parent_orchestrator_responsibilities>
+        <responsibility>Provide clear subtask scope</responsibility>
+        <responsibility>Share necessary context</responsibility>
+        <responsibility>Integrate subtask results</responsibility>
+        <responsibility>Maintain overall workflow tracking</responsibility>
+      </parent_orchestrator_responsibilities>
+    </implementation>
+
+    <example_scenario>
+      <parent_task>Implement complete e-commerce checkout system</parent_task>
+      
+      <sub_orchestration_1>
+        <task>Payment processing integration</task>
+        <workflow>Architect → Code → Execute → Debug → Test</workflow>
+      </sub_orchestration_1>
+
+      <sub_orchestration_2>
+        <task>Order management system</task>
+        <workflow>Architect → Code → Execute → Test</workflow>
+      </sub_orchestration_2>
+
+      <sub_orchestration_3>
+        <task>Email notification system</task>
+        <workflow>Code → Execute → Test</workflow>
+      </sub_orchestration_3>
+
+      <parent_final_phase>
+        <action>Integrate all subsystems</action>
+        <action>Code integration layer</action>
+        <action>Execute full checkout flow</action>
+        <action>Debug any integration issues</action>
+        <action>Final testing</action>
+      </parent_final_phase>
+    </example_scenario>
+  </sub_orchestrator_pattern>
+
+  <complete_workflow_examples>
+    <example name="simple_feature_implementation">
+      <description>Adding a new API endpoint with basic business logic</description>
+      <complexity>Simple (2-3 modes)</complexity>
+
+      <workflow>
+        <step number="1">
+          <mode>Orchestrator</mode>
+          <action>Analyze request, load Memory Bank context</action>
+        </step>
+
+        <step number="2">
+          <mode>Code</mode>
+          <delegation>
+            Implement POST /api/users endpoint in src/routes/users.ts.
+            Accept { name, email } in body, validate, create user in database.
+            Return 201 with user object.
+          </delegation>
+        </step>
+
+        <step number="3">
+          <mode>Execute</mode>
+          <delegation>
+            Test the new POST /api/users endpoint.
+            Verify it creates users correctly and handles validation errors.
+          </delegation>
+        </step>
+
+        <step number="4">
+          <mode>Orchestrator</mode>
+          <action>Update Memory Bank, complete task</action>
+        </step>
+      </workflow>
+    </example>
+
+    <example name="moderate_refactoring_task">
+      <description>Refactoring authentication system to use JWT</description>
+      <complexity>Moderate (4-5 modes)</complexity>
+
+      <workflow>
+        <step number="1">
+          <mode>Orchestrator</mode>
+          <action>Query Memory Bank for current auth implementation</action>
+        </step>
+
+        <step number="2">
+          <mode>Architect</mode>
+          <delegation>
+            Design JWT-based authentication architecture.
+            Define token structure, refresh strategy, middleware approach.
+            Document migration plan from current session-based auth.
+          </delegation>
+        </step>
+
+        <step number="3">
+          <mode>Code</mode>
+          <delegation>
+            Implement JWT authentication based on architecture:
+            - Auth middleware in src/middleware/auth.ts
+            - Login/logout endpoints with token generation
+            - Token refresh mechanism
+            Preserve backward compatibility during migration.
+          </delegation>
+        </step>
+
+        <step number="4">
+          <mode>Execute</mode>
+          <delegation>
+            Test JWT authentication flow:
+            - Login generates valid tokens
+            - Protected routes verify tokens correctly
+            - Token refresh works
+            - Invalid tokens are rejected
+          </delegation>
+        </step>
+
+        <step number="5">
+          <mode>Debug</mode>
+          <delegation>
+            Fix token expiration handling issue found in Execute phase.
+            Tokens not refreshing correctly before expiration.
+          </delegation>
+        </step>
+
+        <step number="6">
+          <mode>Execute</mode>
+          <delegation>
+            Re-test authentication with debug fixes applied.
+          </delegation>
+        </step>
+
+        <step number="7">
+          <mode>Orchestrator</mode>
+          <action>Update Memory Bank with new auth architecture, complete</action>
+        </step>
+      </workflow>
+    </example>
+
+    <example name="complex_feature_with_task_planner">
+      <description>Building multi-tenant SaaS billing system</description>
+      <complexity>Complex (8+ modes with Task Planner)</complexity>
+
+      <workflow>
+        <step number="1">
+          <mode>Orchestrator</mode>
+          <action>Analyze complex request, query Memory Bank for constraints</action>
+          <decision>Task requires 8+ modes → Delegate to Task Planner</decision>
+        </step>
+
+        <step number="2">
+          <mode>Task Planner</mode>
+          <delegation>
+            Create orchestration plan for multi-tenant billing system.
+            
+            Requirements:
+            - Tenant isolation
+            - Stripe integration
+            - Usage tracking
+            - Automated invoicing
+            - Payment history
+            
+            Constraints (from Memory Bank):
+            - Must use existing tenant management system
+            - Follow data isolation pattern in systemPatterns.md
+          </delegation>
+          <output>Receives XML plan with 4 phases, 9 tasks, mode assignments</output>
+        </step>
+
+        <step number="3">
+          <mode>Orchestrator</mode>
+          <action>Execute Phase 1 from plan: Database Schema</action>
+        </step>
+
+        <step number="3a">
+          <mode>Architect (via sub-orchestrator)</mode>
+          <delegation>Design billing database schema with tenant isolation</delegation>
+        </step>
+
+        <step number="3b">
+          <mode>Code (via sub-orchestrator)</mode>
+          <delegation>Create migrations for billing tables</delegation>
+        </step>
+
+        <step number="3c">
+          <mode>Execute (via sub-orchestrator)</mode>
+          <delegation>Run migrations, verify schema created correctly</delegation>
+        </step>
+
+        <step number="4">
+          <mode>Orchestrator</mode>
+          <action>Execute Phase 2 from plan: Stripe Integration</action>
+        </step>
+
+        <step number="4a">
+          <mode>Architect</mode>
+          <delegation>Design Stripe webhook handling and subscription management</delegation>
+        </step>
+
+        <step number="4b">
+          <mode>Code</mode>
+          <delegation>Implement Stripe service layer and webhook endpoints</delegation>
+        </step>
+
+        <step number="4c">
+          <mode>Execute</mode>
+          <delegation>Test Stripe integration with test mode API keys</delegation>
+        </step>
+
+        <step number="4d">
+          <mode>Debug</mode>
+          <delegation>Fix webhook signature validation failing</delegation>
+        </step>
+
+        <step number="4e">
+          <mode>Execute</mode>
+          <delegation>Re-test Stripe webhooks after debug fix</delegation>
+        </step>
+
+        <step number="5">
+          <mode>Orchestrator</mode>
+          <action>Execute Phase 3 from plan: Usage Tracking</action>
+        </step>
+
+        <step number="5a">
+          <mode>Code</mode>
+          <delegation>Implement usage metrics collection middleware</delegation>
+        </step>
+
+        <step number="5b">
+          <mode>Execute</mode>
+          <delegation>Verify usage tracking records API calls correctly</delegation>
+        </step>
+
+        <step number="6">
+          <mode>Orchestrator</mode>
+          <action>Execute Phase 4 from plan: Invoicing & Integration</action>
+        </step>
+
+        <step number="6a">
+          <mode>Code</mode>
+          <delegation>Implement automated invoice generation from usage data</delegation>
+        </step>
+
+        <step number="6b">
+          <mode>Code</mode>
+          <delegation>Build frontend billing dashboard component</delegation>
+        </step>
+
+        <step number="6c">
+          <mode>Execute</mode>
+          <delegation>Test complete billing flow end-to-end</delegation>
+        </step>
+
+        <step number="6d">
+          <mode>Debug</mode>
+          <delegation>Fix invoice calculation discrepancy</delegation>
+        </step>
+
+        <step number="6e">
+          <mode>Execute</mode>
+          <delegation>Final verification of billing system</delegation>
+        </step>
+
+        <step number="7">
+          <mode>Orchestrator</mode>
+          <action>
+            Verify all plan deliverables complete
+            Update Memory Bank with billing system architecture
+            Document in systemPatterns.md
+            Complete orchestration
+          </action>
+        </step>
+      </workflow>
+
+      <key_points>
+        <point>Task Planner created structured 4-phase plan</point>
+        <point>Sub-orchestrator used for complex Phase 1</point>
+        <point>Execute/Debug cycle after each implementation</point>
+        <point>Memory Bank updated throughout workflow</point>
+        <point>Final integration testing before completion</point>
+      </key_points>
+    </example>
+  </complete_workflow_examples>
+
+  <error_handling_in_workflows>
+    <common_issues>
+      <issue name="mode_returns_incomplete_work">
+        <detection>Deliverables don't match requirements</detection>
+        <response>
+          <action>Document gap in Memory Bank</action>
+          <action>Re-delegate with clarified requirements</action>
+          <action>Update workflow plan if needed</action>
+        </response>
+      </issue>
+
+      <issue name="runtime_failure_after_implementation">
+        <detection>Execute phase reveals errors</detection>
+        <response>
+          <action>Delegate to Debug mode immediately</action>
+          <action>Do NOT proceed to next workflow phase</action>
+          <action>After debug, re-run Execute to verify</action>
+          <action>Update Memory Bank with issue and resolution</action>
+        </response>
+      </issue>
+
+      <issue name="dependency_blocking_progress">
+        <detection>Required component not available</detection>
+        <response>
+          <action>Document blocker in Memory Bank</action>
+          <action>Assess if blocker can be resolved in workflow</action>
+          <action>If yes: add unplanned task to resolve</action>
+          <action>If no: inform user, pause workflow</action>
+        </response>
+      </issue>
+
+      <issue name="plan_no_longer_viable">
+        <detection>Circumstances changed during execution</detection>
+        <response>
+          <action>Document change in Memory Bank decisionLog</action>
+          <action>For simple adjustments: modify plan directly</action>
+          <action>For major changes: re-consult Task Planner</action>
+          <action>Update activeContext with new approach</action>
+        </response>
+      </issue>
+    </common_issues>
+
+    <recovery_strategies>
+      <strategy name="checkpoint_rollback">
+        <when>Implementation fundamentally flawed</when>
+        <approach>
+          Return to last stable checkpoint (phase/task)
+          Re-plan from that point
+          Execute corrected workflow
+        </approach>
+      </strategy>
+
+      <strategy name="parallel_investigation">
+        <when>Root cause unclear</when>
+        <approach>
+          Delegate to Debug mode for investigation
+          Continue with independent tasks in parallel
+          Integrate findings when debug completes
+        </approach>
+      </strategy>
+
+      <strategy name="graceful_degradation">
+        <when>Non-critical feature blocked</when>
+        <approach>
+          Implement core functionality without blocked feature
+          Document limitation in Memory Bank
+          Complete primary workflow
+          Address blocker in follow-up if needed
+        </approach>
+      </strategy>
+    </recovery_strategies>
+  </error_handling_in_workflows>
+
+  <workflow_optimization_tips>
+    <tip priority="high">
+      <name>Batch Related Changes</name>
+      <description>Group related tasks to minimize mode switches</description>
+      <example>
+        Instead of: Code → Execute → Code → Execute → Code → Execute
+        Do: Code (all implementations) → Execute (all verifications)
+      </example>
+    </tip>
+
+    <tip priority="high">
+      <name>Front-Load Planning</name>
+      <description>Use Architect or Task Planner early for complex work</description>
+      <benefit>Reduces rework and mode switching later</benefit>
+    </tip>
+
+    <tip priority="medium">
+      <name>Leverage Sub-Orchestrators</name>
+      <description>Isolate complex subtasks into their own orchestrations</description>
+      <benefit>Clearer separation, easier tracking, better parallelization</benefit>
+    </tip>
+
+    <tip priority="medium">
+      <name>Maintain Momentum</name>
+      <description>Don't over-analyze; trust specialized modes</description>
+      <example>Delegate to Code mode rather than planning every detail yourself</example>
+    </tip>
+
+    <tip priority="low">
+      <name>Document Patterns</name>
+      <description>Save successful workflows to systemPatterns.md</description>
+      <benefit>Reuse proven approaches for similar future tasks</benefit>
+    </tip>
+  </workflow_optimization_tips>
+</workflow_patterns_and_examples>

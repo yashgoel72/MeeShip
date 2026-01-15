@@ -1,0 +1,203 @@
+<memory_bank_strategy>
+  <overview>
+    This file defines the Memory Bank strategy for Debug mode, including initialization
+    procedures, context retrieval workflows, and integration with Memory Query mode.
+  </overview>
+
+  <initialization>
+    <check_memory_bank>
+      <description>First action when Debug mode starts</description>
+      <procedure>
+        <step number="1">
+          <action>Check if memory-bank/ directory exists</action>
+          <thinking>
+            CHECK FOR MEMORY BANK:
+            - First, check if the memory-bank/ directory exists.
+            - If memory-bank DOES exist, skip immediately to if_memory_bank_exists section.
+          </thinking>
+        </step>
+      </procedure>
+    </check_memory_bank>
+  </initialization>
+
+  <no_memory_bank_workflow>
+    <title>If No Memory Bank</title>
+    
+    <step number="1">
+      <action>Inform the User</action>
+      <message>
+        "No Memory Bank was found. I recommend creating one to maintain project context. 
+        Would you like to switch to Flow-Architect mode to do this?"
+      </message>
+    </step>
+
+    <step number="2">
+      <action>Conditional Actions</action>
+      <user_declines>
+        <thinking>
+          I need to proceed with the task without Memory Bank functionality.
+        </thinking>
+        <actions>
+          <action priority="1">Inform the user that the Memory Bank will not be created</action>
+          <action priority="2">Set the status to '[MEMORY BANK: INACTIVE]'</action>
+          <action priority="3">
+            Proceed with the task using the current context if needed, 
+            or if no task is provided, use the ask_followup_question tool
+          </action>
+        </actions>
+      </user_declines>
+      
+      <user_agrees>
+        <action>Switch to Flow-Architect mode to create the Memory Bank</action>
+      </user_agrees>
+    </step>
+  </no_memory_bank_workflow>
+
+  <memory_bank_exists_workflow>
+    <title>If Memory Bank Exists</title>
+    <primary_strategy>USE MEMORY QUERY MODE FOR CONTEXT RETRIEVAL</primary_strategy>
+
+    <session_state_tracking>
+      <critical_rule>
+        PREVENT REDUNDANT MEMORY QUERIES:
+        - Check if memory has been consulted in current session
+        - If status is [MEMORY BANK: CONSULTED], skip query and use existing context
+        - Only query if status is [MEMORY BANK: ACTIVE]
+        - After querying, update status to [MEMORY BANK: CONSULTED]
+      </critical_rule>
+
+      <status_states>
+        <state name="INACTIVE">Memory Bank does not exist in workspace</state>
+        <state name="ACTIVE">Memory Bank exists but not yet consulted this session</state>
+        <state name="CONSULTED">Memory Bank has been queried in this session</state>
+      </status_states>
+    </session_state_tracking>
+
+    <thinking>
+      Memory Bank exists. Instead of reading all files (risk of context overflow), 
+      I should use Memory Query mode to extract only relevant information for this task.
+    </thinking>
+
+    <check_consulted_status>
+      <rule>Before querying Memory Bank, check current session state</rule>
+      <if_status_is_consulted>
+        <action>Skip memory query - context already loaded in session</action>
+        <action>Use existing knowledge from previous consultation</action>
+        <action>Maintain [MEMORY BANK: CONSULTED] status</action>
+        <note>This prevents redundant queries and saves time/tokens</note>
+      </if_status_is_consulted>
+      <if_status_is_active>
+        <action>Proceed with memory query decision logic below</action>
+      </if_status_is_active>
+    </check_consulted_status>
+
+    <decision_point>
+      <description>Determine if task requires memory bank knowledge</description>
+
+      <requires_memory_bank_knowledge>
+        <title>If Task Requires Memory Bank Knowledge</title>
+        
+        <examples>
+          <example>Debugging issues (check for known patterns or previous fixes)</example>
+          <example>Understanding error context (lookup architectural decisions)</example>
+          <example>Identifying root causes (verify system patterns)</example>
+          <example>Analyzing stack traces (check component relationships)</example>
+          <example>Investigating failures (review recent changes)</example>
+        </examples>
+
+        <workflow>
+          <step number="1">
+            <title>Use Memory Query Mode</title>
+            <code_example><![CDATA[
+<new_task>
+<mode>memory-query</mode>
+<message>Need to extract relevant context for: {brief debugging task description}</message>
+</new_task>
+            ]]></code_example>
+          </step>
+
+          <step number="2">
+            <title>Provide Structured Query</title>
+            <description>Once in Memory Query mode</description>
+            <query_format>
+              Query: {specific question about what you need to know}
+              Context: {what you're trying to debug}
+              ParentMode: debug
+            </query_format>
+          </step>
+
+          <step number="3">
+            <title>Receive Condensed Response</title>
+            <description>Max 500 lines vs 2000+ from full read</description>
+            <response_sections>
+              <section>Key Facts</section>
+              <section>Detailed Context</section>
+              <section>Constraints &amp; Warnings</section>
+              <section>Recommendations</section>
+              <section>Citations</section>
+            </response_sections>
+          </step>
+
+          <step number="4">
+            <title>Return to Debug Mode</title>
+            <description>Memory Query mode will switch you back</description>
+          </step>
+
+          <step number="5">
+            <title>Apply Retrieved Knowledge</title>
+            <description>Apply retrieved knowledge to debugging task</description>
+          </step>
+
+          <step number="6">
+            <title>Set Status to CONSULTED and Proceed</title>
+            <status>[MEMORY BANK: CONSULTED]</status>
+            <action>Proceed with debugging. Memory has been queried in this session.</action>
+          </step>
+        </workflow>
+      </requires_memory_bank_knowledge>
+
+      <does_not_require_memory_bank_knowledge>
+        <title>If Task Does NOT Require Memory Bank Knowledge</title>
+        
+        <examples>
+          <example>Simple log analysis unrelated to architecture</example>
+          <example>Basic syntax errors</example>
+          <example>Standard debugging operations</example>
+        </examples>
+
+        <workflow>
+          <step number="1">
+            <action>Maintain current status (ACTIVE or CONSULTED as appropriate)</action>
+            <note>Do not change CONSULTED back to ACTIVE if memory was already queried</note>
+          </step>
+          <step number="2">
+            <action>Proceed with debugging task directly</action>
+          </step>
+          <step number="3">
+            <action>If no task provided, use ask_followup_question tool</action>
+          </step>
+        </workflow>
+      </does_not_require_memory_bank_knowledge>
+    </decision_point>
+
+    <fallback_strategy>
+      <title>Fallback Strategy</title>
+      <condition>If Memory Query mode is unavailable</condition>
+      <steps>
+        <step number="1">Read memory bank files directly (legacy behavior)</step>
+        <step number="2">Focus on most relevant files first</step>
+        <step number="3">Note: Higher risk of context overflow</step>
+      </steps>
+    </fallback_strategy>
+  </memory_bank_exists_workflow>
+
+  <general_rules>
+    <rule priority="critical">
+      <name>Status Prefix</name>
+      <description>
+        Begin EVERY response with either '[MEMORY BANK: ACTIVE]' or '[MEMORY BANK: INACTIVE]', 
+        according to the current state of the Memory Bank.
+      </description>
+    </rule>
+  </general_rules>
+</memory_bank_strategy>

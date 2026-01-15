@@ -1,0 +1,191 @@
+<memory_bank_updates>
+  <overview>
+    This file defines when and how to update Memory Bank files during debugging sessions.
+    Updates should capture significant changes, decisions, and context throughout the chat session.
+  </overview>
+
+  <update_frequency>
+    <critical_rule priority="highest">
+      ALWAYS MAKE SURE TO UPDATE MEMORY BANK THROUGHOUT THE CHAT SESSION, 
+      WHEN SIGNIFICANT CHANGES OCCUR IN THE PROJECT.
+    </critical_rule>
+  </update_frequency>
+
+  <file_update_rules>
+    <file_type name="decisionLog.md">
+      <trigger>
+        When a significant architectural decision is made (new component, data flow change, 
+        technology choice, etc.). Use your judgment to determine significance.
+      </trigger>
+      
+      <action>
+        <thinking>
+          I need to update decisionLog.md with a decision, the rationale, and any implications.
+        </thinking>
+        <tool_usage>
+          <tool>insert_content</tool>
+          <method>append</method>
+          <important>Never overwrite existing entries</important>
+          <requirement>Always include a timestamp</requirement>
+        </tool_usage>
+      </action>
+
+      <format>
+        <pattern>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</pattern>
+      </format>
+    </file_type>
+
+    <file_type name="productContext.md">
+      <trigger>
+        When the high-level project description, goals, features, or overall architecture 
+        changes significantly. Use your judgment to determine significance.
+      </trigger>
+      
+      <action>
+        <thinking>
+          A fundamental change has occurred which warrants an update to productContext.md.
+        </thinking>
+        <tool_usage>
+          <primary_method>
+            <tool>insert_content</tool>
+            <use_case>Append new information</use_case>
+          </primary_method>
+          <alternative_method>
+            <tool>apply_diff</tool>
+            <use_case>Modify existing entries if necessary</use_case>
+          </alternative_method>
+          <note>
+            Timestamp and summary of change will be appended as footnotes to the end of the file
+          </note>
+        </tool_usage>
+      </action>
+
+      <format>
+        <pattern>[YYYY-MM-DD HH:MM:SS] - [Summary of Change]</pattern>
+      </format>
+    </file_type>
+
+    <file_type name="systemPatterns.md">
+      <trigger>
+        When new architectural patterns are introduced or existing ones are modified. 
+        Use your judgement.
+      </trigger>
+      
+      <action>
+        <thinking>
+          I need to update systemPatterns.md with a brief summary and time stamp.
+        </thinking>
+        <tool_usage>
+          <primary_method>
+            <tool>insert_content</tool>
+            <use_case>Append new patterns</use_case>
+          </primary_method>
+          <alternative_method>
+            <tool>apply_diff</tool>
+            <use_case>Modify existing entries if warranted</use_case>
+          </alternative_method>
+          <requirement>Always include a timestamp</requirement>
+        </tool_usage>
+      </action>
+
+      <format>
+        <pattern>[YYYY-MM-DD HH:MM:SS] - [Description of Pattern/Change]</pattern>
+      </format>
+    </file_type>
+
+    <file_type name="activeContext.md">
+      <trigger>
+        When the current focus of work changes, or when significant progress is made. 
+        Use your judgement.
+      </trigger>
+      
+      <action>
+        <thinking>
+          I need to update activeContext.md with a brief summary and time stamp.
+        </thinking>
+        <tool_usage>
+          <primary_method>
+            <tool>insert_content</tool>
+            <use_case>Append to the relevant section</use_case>
+            <sections>
+              <section>Current Focus</section>
+              <section>Recent Changes</section>
+              <section>Open Questions/Issues</section>
+            </sections>
+          </primary_method>
+          <alternative_method>
+            <tool>apply_diff</tool>
+            <use_case>Modify existing entries if warranted</use_case>
+          </alternative_method>
+          <requirement>Always include a timestamp</requirement>
+        </tool_usage>
+      </action>
+
+      <format>
+        <pattern>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</pattern>
+      </format>
+    </file_type>
+
+    <file_type name="progress.md">
+      <trigger>
+        When a task begins, is completed, or if there are any changes. Use your judgement.
+      </trigger>
+      
+      <action>
+        <thinking>
+          I need to update progress.md with a brief summary and time stamp.
+        </thinking>
+        <tool_usage>
+          <tool>insert_content</tool>
+          <method>append</method>
+          <important>Never overwrite existing entries</important>
+          <requirement>Always include a timestamp</requirement>
+        </tool_usage>
+      </action>
+
+      <format>
+        <pattern>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</pattern>
+      </format>
+    </file_type>
+  </file_update_rules>
+
+  <timestamp_format>
+    <standard>YYYY-MM-DD HH:MM:SS</standard>
+    <examples>
+      <example>2025-01-15 14:30:45</example>
+      <example>2025-12-31 23:59:59</example>
+    </examples>
+  </timestamp_format>
+
+  <best_practices>
+    <practice priority="high">
+      <name>Use Judgment Appropriately</name>
+      <description>
+        Not every minor change requires a memory bank update. Focus on significant 
+        architectural decisions, important context changes, and major milestones.
+      </description>
+    </practice>
+
+    <practice priority="high">
+      <name>Preserve History</name>
+      <description>
+        Never overwrite existing entries in Memory Bank files. Always append or use 
+        apply_diff for modifications while preserving historical context.
+      </description>
+    </practice>
+
+    <practice priority="medium">
+      <name>Consistent Timestamps</name>
+      <description>
+        Always include timestamps in the standard format to maintain chronological clarity.
+      </description>
+    </practice>
+
+    <practice priority="medium">
+      <name>Clear Summaries</name>
+      <description>
+        Write concise but informative summaries that will be meaningful when reviewed later.
+      </description>
+    </practice>
+  </best_practices>
+</memory_bank_updates>

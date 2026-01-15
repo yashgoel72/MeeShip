@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<memory_bank_updates>
+  <overview>
+    Guidelines for updating Memory Bank files throughout a chat session when significant changes occur.
+    Always use insert_content to append new information with timestamps.
+  </overview>
+
+  <update_frequency>
+    <principle priority="critical">
+      ALWAYS UPDATE MEMORY BANK THROUGHOUT THE CHAT SESSION WHEN SIGNIFICANT CHANGES OCCUR IN THE PROJECT.
+    </principle>
+  </update_frequency>
+
+  <timestamp_format>
+    <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</format>
+    <requirement>All updates must include a timestamp</requirement>
+  </timestamp_format>
+
+  <file_update_rules>
+    <file name="decisionLog.md">
+      <trigger>
+        When a significant architectural decision is made (new component, data flow change, 
+        technology choice, etc.). Use your judgment to determine significance.
+      </trigger>
+
+      <action>
+        <thinking>
+          I need to update decisionLog.md with a decision, the rationale, and any implications.
+        </thinking>
+        <tool>insert_content</tool>
+        <method>Append new information (never overwrite existing entries)</method>
+        <requirement>Always include a timestamp</requirement>
+      </action>
+
+      <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</format>
+    </file>
+
+    <file name="productContext.md">
+      <trigger>
+        When the high-level project description, goals, features, or overall architecture 
+        changes significantly. Use your judgment to determine significance.
+      </trigger>
+
+      <action>
+        <thinking>
+          A fundamental change has occurred which warrants an update to productContext.md.
+        </thinking>
+        <tool_options>
+          <option>insert_content to append new information</option>
+          <option>apply_diff to modify existing entries if necessary</option>
+        </tool_options>
+        <note>Timestamp and summary of change will be appended as footnotes to the end of the file</note>
+      </action>
+
+      <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change]</format>
+    </file>
+
+    <file name="systemPatterns.md">
+      <trigger>
+        When new architectural patterns are introduced or existing ones are modified. 
+        Use your judgment.
+      </trigger>
+
+      <action>
+        <thinking>
+          I need to update systemPatterns.md with a brief summary and timestamp.
+        </thinking>
+        <tool_options>
+          <option>insert_content to append new patterns</option>
+          <option>apply_diff to modify existing entries if warranted</option>
+        </tool_options>
+        <requirement>Always include a timestamp</requirement>
+      </action>
+
+      <format>[YYYY-MM-DD HH:MM:SS] - [Description of Pattern/Change]</format>
+    </file>
+
+    <file name="activeContext.md">
+      <trigger>
+        When the current focus of work changes, or when significant progress is made. 
+        Use your judgment.
+      </trigger>
+
+      <action>
+        <thinking>
+          I need to update activeContext.md with a brief summary and timestamp.
+        </thinking>
+        <sections>
+          <section>Current Focus</section>
+          <section>Recent Changes</section>
+          <section>Open Questions/Issues</section>
+        </sections>
+        <tool_options>
+          <option>insert_content to append to the relevant section</option>
+          <option>apply_diff to modify existing entries if warranted</option>
+        </tool_options>
+        <requirement>Always include a timestamp</requirement>
+      </action>
+
+      <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</format>
+    </file>
+
+    <file name="progress.md">
+      <trigger>
+        When a task begins, is completed, or if there are any changes. Use your judgment.
+      </trigger>
+
+      <action>
+        <thinking>
+          I need to update progress.md with a brief summary and timestamp.
+        </thinking>
+        <tool>insert_content</tool>
+        <method>Append the new entry (never overwrite existing entries)</method>
+        <requirement>Always include a timestamp</requirement>
+      </action>
+
+      <format>[YYYY-MM-DD HH:MM:SS] - [Summary of Change/Focus/Issue]</format>
+    </file>
+  </file_update_rules>
+
+  <general_guidelines>
+    <guideline priority="high">
+      <name>Use Judgment for Significance</name>
+      <description>
+        Not every minor change requires a Memory Bank update. Use your judgment to determine 
+        when changes are significant enough to warrant documentation.
+      </description>
+    </guideline>
+
+    <guideline priority="high">
+      <name>Never Overwrite</name>
+      <description>
+        Always use insert_content to append new information. Only use apply_diff when 
+        modifying specific existing entries is absolutely necessary.
+      </description>
+    </guideline>
+
+    <guideline priority="critical">
+      <name>Timestamp Everything</name>
+      <description>
+        Every Memory Bank update must include a timestamp in the format 
+        [YYYY-MM-DD HH:MM:SS] to maintain chronological history.
+      </description>
+    </guideline>
+
+    <guideline priority="medium">
+      <name>Be Concise but Complete</name>
+      <description>
+        Summaries should be brief but contain enough information to be useful in the future.
+      </description>
+    </guideline>
+  </general_guidelines>
+</memory_bank_updates>

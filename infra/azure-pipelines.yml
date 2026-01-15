@@ -1,0 +1,156 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  dockerRegistryServiceConnection: 'your-acr-connection'
+  imageRepository: 'meesho-image-optimizer'
+  containerRegistry: 'youracr.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/backend/Dockerfile'
+  tag: '$(Build.BuildId)'
+  vmImageName: 'ubuntu-latest'
+
+stages:
+  - stage: Build
+    displayName: Build and Test
+    jobs:
+      - job: Backend
+        displayName: Build Backend
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+            displayName: 'Use Python 3.11'
+
+          - script: |
+              cd backend
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt
+              pip install pytest pytest-cov
+            displayName: 'Install dependencies'
+
+          - script: |
+              cd backend
+              pytest tests/ --cov=app --cov-report=xml --cov-report=html
+            displayName: 'Run tests'
+            continueOnError: true
+
+          - task: PublishCodeCoverageResults@1
+            inputs:
+              codeCoverageTool: 'Cobertura'
+              summaryFileLocation: '$(Build.SourcesDirectory)/backend/coverage.xml'
+            displayName: 'Publish code coverage'
+
+      - job: Frontend
+        displayName: Build Frontend
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+            displayName: 'Install Node.js'
+
+          - script: |
+              cd frontend
+              npm ci
+              npm run build
+            displayName: 'Install and build frontend'
+
+          - script: |
+              cd frontend
+              npm run lint
+            displayName: 'Run linter'
+            continueOnError: true
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.SourcesDirectory)/frontend/dist'
+              ArtifactName: 'frontend-dist'
+            displayName: 'Publish frontend artifact'
+
+  - stage: Docker
+    displayName: Build Docker Images
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: BuildPushBackend
+        displayName: Build and Push Backend Image
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: Docker@2
+            displayName: Build and push backend image
+            inputs:
+              command: buildAndPush
+              repository: $(imageRepository)-backend
+              dockerfile: $(Build.SourcesDirectory)/backend/Dockerfile
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                $(tag)
+                latest
+
+      - job: BuildPushFrontend
+        displayName: Build and Push Frontend Image
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: Docker@2
+            displayName: Build and push frontend image
+            inputs:
+              command: buildAndPush
+              repository: $(imageRepository)-frontend
+              dockerfile: $(Build.SourcesDirectory)/frontend/Dockerfile
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                $(tag)
+                latest
+
+  - stage: DeployDev
+    displayName: Deploy to Development
+    dependsOn: Docker
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployDev
+        displayName: Deploy to Dev Environment
+        environment: 'development'
+        pool:
+          vmImage: $(vmImageName)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    echo "Deploying to development environment..."
+                    echo "Image tag: $(tag)"
+                  displayName: 'Deploy notification'
+                # Add actual deployment steps here (e.g., kubectl apply, helm upgrade, etc.)
+
+  - stage: DeployProd
+    displayName: Deploy to Production
+    dependsOn: DeployDev
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployProd
+        displayName: Deploy to Production Environment
+        environment: 'production'
+        pool:
+          vmImage: $(vmImageName)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    echo "Deploying to production environment..."
+                    echo "Image tag: $(tag)"
+                  displayName: 'Deploy notification'
+                # Add actual deployment steps here

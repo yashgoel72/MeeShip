@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<orchestration_strategy_and_planning>
+  <overview>
+    Comprehensive strategy for task analysis, workflow planning, and complexity evaluation.
+    Orchestrator follows a structured 4-phase workflow: Research → Architecture → Planning → Execution
+  </overview>
+
+  <core_workflow>
+    <description>
+      ALL tasks should follow this 4-phase workflow unless the task is trivial (single simple file edit)
+    </description>
+    
+    <phase number="1">
+      <name>Project Research</name>
+      <mode>project-research</mode>
+      <purpose>Understand the problem/task and existing codebase context</purpose>
+      <when>ALWAYS for non-trivial tasks</when>
+      <delegation_pattern><![CDATA[
+<new_task>
+<mode>project-research</mode>
+<message>
+Research the following task to understand the problem and existing implementations:
+
+Task Description: [User's task]
+
+Please investigate:
+1. Existing implementations related to this task
+2. Relevant type definitions and interfaces
+3. Project structure and file organization
+4. Dependencies and modules involved
+5. Similar patterns in the codebase
+
+Provide a comprehensive report that will help architect a solution.
+</message>
+</new_task>
+      ]]></delegation_pattern>
+    </phase>
+
+    <phase number="2">
+      <name>Architecture</name>
+      <mode>architect</mode>
+      <purpose>Design the solution based on research findings</purpose>
+      <when>ALWAYS after project-research completes</when>
+      <delegation_pattern><![CDATA[
+<new_task>
+<mode>architect</mode>
+<message>
+Based on the project research findings, architect a solution for:
+
+Task: [User's task]
+
+Project Research Findings:
+[Summary of project-research output]
+
+Please create:
+1. Solution architecture document
+2. Implementation approach
+3. File structure and changes needed
+4. Technical specifications
+5. Design decisions and rationale
+
+Output should be in markdown format for reference by subsequent modes.
+</message>
+</new_task>
+      ]]></delegation_pattern>
+    </phase>
+
+    <phase number="3">
+      <name>Task Planning</name>
+      <mode>task-planner</mode>
+      <purpose>Decompose the architectural plan into executable tasks</purpose>
+      <when>ALWAYS after architecture completes (unless trivial single-mode task)</when>
+      <delegation_pattern><![CDATA[
+<new_task>
+<mode>task-planner</mode>
+<message>
+Create a detailed execution plan for implementing the following solution:
+
+Original Task: [User's task]
+
+Architecture Reference: [Path to architecture document or summary]
+
+Project Research Context:
+[Key findings from project-research]
+
+Architectural Design:
+[Summary of architect mode output]
+
+Memory Bank Status: [ACTIVE/INACTIVE]
+
+Please provide:
+1. Structured orchestration plan in standardized format
+2. Task breakdown with mode assignments
+3. Dependencies and sequencing
+4. Success criteria for each task
+5. Handoff requirements between tasks
+</message>
+</new_task>
+      ]]></delegation_pattern>
+    </phase>
+
+    <phase number="4">
+      <name>Execution</name>
+      <modes>code, test, debug, etc.</modes>
+      <purpose>Execute the tasks as defined by task-planner</purpose>
+      <when>After task-planner provides execution plan</when>
+      <approach>
+        <step>Receive structured plan from task-planner</step>
+        <step>Validate plan completeness</step>
+        <step>Execute tasks sequentially according to dependencies</step>
+        <step>Track progress and handle issues</step>
+        <step>Update Memory Bank with outcomes</step>
+      </approach>
+    </phase>
+  </core_workflow>
+
+  <task_analysis>
+    <initial_assessment>
+      <step number="1">
+        <title>Determine Task Complexity</title>
+        <description>
+          Classify task to determine if full 4-phase workflow is needed
+        </description>
+        <complexity_indicators>
+          <trivial>
+            <characteristic>Single file edit</characteristic>
+            <characteristic>No research needed</characteristic>
+            <characteristic>Clear and simple requirement</characteristic>
+            <action>Skip phases, delegate directly to appropriate mode</action>
+            <example>Fix typo in README, update version number</example>
+          </trivial>
+          <simple>
+            <characteristic>Well-understood change</characteristic>
+            <characteristic>Minimal research needed</characteristic>
+            <characteristic>1-2 modes required</characteristic>
+            <action>Use abbreviated workflow (may skip architecture)</action>
+            <example>Add simple utility function, update configuration</example>
+          </simple>
+          <moderate>
+            <characteristic>Requires understanding of context</characteristic>
+            <characteristic>2-3 modes needed</characteristic>
+            <characteristic>Some architectural decisions</characteristic>
+            <action>Use FULL 4-phase workflow</action>
+            <example>Add new feature, refactor module, implement integration</example>
+          </moderate>
+          <complex>
+            <characteristic>Significant changes across multiple areas</characteristic>
+            <characteristic>4+ modes or iterations required</characteristic>
+            <characteristic>Multiple architectural decisions</characteristic>
+            <action>Use FULL 4-phase workflow with detailed planning</action>
+            <example>Major feature addition, system refactoring, new module creation</example>
+          </complex>
+        </complexity_indicators>
+      </step>
+
+      <step number="2">
+        <title>Check Memory Bank State</title>
+        <actions>
+          <action>Verify Memory Bank exists (check environment_details)</action>
+          <action>If exists: Set status to ACTIVE</action>
+          <action>Memory Bank context will be used by project-research and architect modes</action>
+        </actions>
+      </step>
+    </initial_assessment>
+  </task_analysis>
+
+  <workflow_execution>
+    <sequential_pattern>
+      <description>Execute the 4-phase workflow sequentially</description>
+      <pattern>
+        1. Delegate to project-research mode
+        2. Wait for research completion
+        3. Delegate to architect mode with research findings
+        4. Wait for architecture completion  
+        5. Delegate to task-planner with architecture and research context
+        6. Wait for execution plan
+        7. Execute plan step-by-step as defined by task-planner
+      </pattern>
+      <critical>NEVER skip to implementation without research and architecture phases</critical>
+    </sequential_pattern>
+
+    <context_flow>
+      <description>How context flows through the phases</description>
+      <flow>
+        <from_phase>User Request</from_phase>
+        <to_phase>Project Research</to_phase>
+        <information>Task description, requirements</information>
+      </flow>
+      <flow>
+        <from_phase>Project Research</from_phase>
+        <to_phase>Architect</to_phase>
+        <information>Codebase structure, existing implementations, patterns</information>
+      </flow>
+      <flow>
+        <from_phase>Architect</from_phase>
+        <to_phase>Task Planner</to_phase>
+        <information>Solution design, architecture document, technical specs</information>
+      </flow>
+      <flow>
+        <from_phase>Task Planner</from_phase>
+        <to_phase>Execution Modes</to_phase>
+        <information>Structured plan, task breakdown, dependencies</information>
+      </flow>
+    </context_flow>
+
+    <phase_completion_criteria>
+      <phase name="project-research">
+        <criterion>Comprehensive report on existing implementations</criterion>
+        <criterion>Type definitions and interfaces identified</criterion>
+        <criterion>Dependencies and relationships documented</criterion>
+        <criterion>Relevant patterns and conventions noted</criterion>
+      </phase>
+      <phase name="architect">
+        <criterion>Solution architecture document created</criterion>
+        <criterion>Implementation approach defined</criterion>
+        <criterion>Technical decisions documented</criterion>
+        <criterion>File changes and structure specified</criterion>
+      </phase>
+      <phase name="task-planner">
+        <criterion>Structured execution plan generated</criterion>
+        <criterion>All tasks have mode assignments</criterion>
+        <criterion>Dependencies explicitly defined</criterion>
+        <criterion>Success criteria clear for each task</criterion>
+      </phase>
+    </phase_completion_criteria>
+  </workflow_execution>
+
+  <plan_execution>
+    <receiving_plan>
+      <step number="1">
+        <title>Parse Plan from Task Planner</title>
+        <description>Extract tasks, dependencies, and metadata from plan</description>
+      </step>
+      
+      <step number="2">
+        <title>Validate Plan Structure</title>
+        <validations>
+          <validation>All required sections present</validation>
+          <validation>Mode assignments are valid</validation>
+          <validation>Dependencies are logical and sequential</validation>
+          <validation>Success criteria are measurable</validation>
+        </validations>
+      </step>
+
+      <step number="3">
+        <title>Execute Tasks Sequentially</title>
+        <description>
+          Follow task order from plan, respecting dependencies.
+          Use new_task to delegate each task to assigned mode.
+        </description>
+        <delegation_template><![CDATA[
+<new_task>
+<mode>[mode-from-plan]</mode>
+<message>
+Task: [Task name from plan]
+
+Action: [Action description from plan]
+
+Context from Architecture:
+[Relevant architecture sections]
+
+Expected Deliverables:
+[Deliverables from plan]
+
+Success Criteria:
+[Success criteria from plan]
+
+Handoff from Previous Task:
+[Handoff information if applicable]
+</message>
+</new_task>
+        ]]></delegation_template>
+      </step>
+
+      <step number="4">
+        <title>Track Progress</title>
+        <description>Monitor task completion and update status</description>
+        <status_tracking>
+          <track>Tasks completed</track>
+          <track>Current task in progress</track>
+          <track>Remaining tasks</track>
+          <track>Blockers or issues</track>
+        </status_tracking>
+      </step>
+
+      <step number="5">
+        <title>Update Memory Bank</title>
+        <description>Document outcomes and decisions throughout execution</description>
+      </step>
+    </receiving_plan>
+
+    <error_handling_during_execution>
+      <scenario>Task fails or encounters blocker</scenario>
+      <response>
+        <step>Assess impact on remaining tasks</step>
+        <step>Determine if plan needs adjustment</step>
+        <step>Potentially re-engage architect or task-planner for replanning</step>
+        <step>Document issue and resolution in Memory Bank</step>
+      </response>
+    </error_handling_during_execution>
+  </plan_execution>
+
+  <decision_framework>
+    <when_to_use_full_workflow>
+      <criterion>Task involves multiple files or components</criterion>
+      <criterion>Solution approach is not immediately obvious</criterion>
+      <criterion>Need to understand existing codebase first</criterion>
+      <criterion>Architectural decisions required</criterion>
+      <criterion>Multiple modes will be involved</criterion>
+    </when_to_use_full_workflow>
+
+    <when_to_abbreviate>
+      <criterion>Trivial file edit with no research needed</criterion>
+      <criterion>Simple configuration change</criterion>
+      <criterion>Documentation-only update</criterion>
+      <criterion>Single-mode task with clear requirements</criterion>
+    </when_to_abbreviate>
+
+    <mode_selection_priority>
+      <priority level="1">project-research for understanding</priority>
+      <priority level="2">architect for design</priority>
+      <priority level="3">task-planner for execution planning</priority>
+      <priority level="4">specialized modes for implementation</priority>
+    </mode_selection_priority>
+  </decision_framework>
+
+  <progress_tracking>
+    <status_monitoring>
+      <track_per_phase>
+        <item>Phase name (Research/Architecture/Planning/Execution)</item>
+        <item>Current status (pending/active/complete)</item>
+        <item>Mode assigned</item>
+        <item>Key outputs produced</item>
+        <item>Issues encountered</item>
+      </track_per_phase>
+    </status_monitoring>
+
+    <reporting_format>
+      <template><![CDATA[
+[ORCHESTRATOR MODE] [MEMORY BANK: ACTIVE/INACTIVE]
+
+Workflow Progress:
+✅ Phase 1 - Project Research: [Status/Summary]
+✅ Phase 2 - Architecture: [Status/Summary]  
+🔄 Phase 3 - Task Planning: [Status/Summary]
+⏳ Phase 4 - Execution: [Status/Summary]
+
+Current Task: [What's happening now]
+Next: [What comes next]
+      ]]></template>
+    </reporting_format>
+  </progress_tracking>
+
+  <completion_protocol>
+    <when_to_complete>
+      <criterion>All 4 phases completed successfully</criterion>
+      <criterion>All execution tasks from plan finished</criterion>
+      <criterion>Deliverables verified</criterion>
+      <criterion>Memory Bank updated with outcomes</criterion>
+    </when_to_complete>
+    
+    <completion_summary>
+      <include>Research findings summary</include>
+      <include>Architecture decisions made</include>
+      <include>Tasks executed</include>
+      <include>Final deliverables</include>
+      <include>Any deviations from plan</include>
+    </completion_summary>
+  </completion_protocol>
+
+  <context_management>
+    <state_preservation>
+      <between_phases>
+        <action>Capture outputs from each phase</action>
+        <action>Pass relevant context to next phase</action>
+        <action>Document key decisions</action>
+        <action>Update Memory Bank at phase transitions</action>
+      </between_phases>
+    </state_preservation>
+
+    <information_flow>
+      <ensure_each_mode_receives>
+        <item>Clear task description</item>
+        <item>Context from previous phases</item>
+        <item>Expected deliverables</item>
+        <item>Success criteria</item>
+        <item>Relevant Memory Bank context</item>
+      </ensure_each_mode_receives>
+    </information_flow>
+  </context_management>
+
+  <workflow_optimization>
+    <efficiency_principles>
+      <principle>Follow 4-phase workflow for structured approach</principle>
+      <principle>Build understanding before implementation</principle>
+      <principle>Let specialists (research/architect/planner) guide execution</principle>
+      <principle>Maintain context across phase transitions</principle>
+      <principle>Document decisions for future reference</principle>
+    </efficiency_principles>
+
+    <quality_assurance>
+      <before_each_phase>
+        <check>Previous phase completed successfully</check>
+        <check>Context properly captured</check>
+        <check>Clear handoff to next phase</check>
+      </before_each_phase>
+      
+      <before_completion>
+        <check>All phases executed</check>
+        <check>Deliverables meet requirements</check>
+        <check>Memory Bank updated</check>
+        <check>No loose ends or blockers</check>
+      </before_completion>
+    </quality_assurance>
+  </workflow_optimization>
+</orchestration_strategy_and_planning>

@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mode_collaboration>
+  <overview>
+    Guidelines for Test mode collaboration with other modes, including
+    handoff patterns, context sharing, and workflow coordination.
+  </overview>
+
+  <available_modes>
+    <mode slug="code">
+      <description>
+        Responsible for code creation, modification, and documentation.
+        Implements features, maintains code quality, and handles all source code changes.
+      </description>
+    </mode>
+
+    <mode slug="architect">
+      <description>
+        Focuses on system design, documentation structure, and project organization.
+        Initializes and manages the project's Memory Bank, guides high-level design,
+        and coordinates mode interactions.
+      </description>
+    </mode>
+
+    <mode slug="ask">
+      <description>
+        Answer questions, analyze code, explain concepts, and access external resources.
+        Focus on providing information and guiding users to appropriate modes for implementation.
+      </description>
+    </mode>
+
+    <mode slug="debug">
+      <description>
+        An expert in troubleshooting and debugging. Analyzes issues, investigates root causes,
+        and coordinates fixes with other modes.
+      </description>
+    </mode>
+
+    <mode slug="test">
+      <description>
+        Responsible for test-driven development, test execution, and quality assurance.
+        Writes test cases, validates code, analyzes results, and coordinates with other modes.
+      </description>
+      <note>This is the current mode</note>
+    </mode>
+
+    <mode slug="default">
+      <description>
+        A custom, global mode in Roo Code, using the Roo Code default rules and instructions,
+        along with the custom instruction set for memory bank functionality. Typically called
+        upon when a functionality is not working correctly with the other custom modes.
+        Very broad range of knowledge and abilities.
+      </description>
+    </mode>
+  </available_modes>
+
+  <collaboration_patterns>
+    <pattern mode="architect">
+      <design_reception>
+        <test_mode_receives>
+          <item>Test specifications</item>
+          <item>Coverage requirements</item>
+          <item>Quality standards</item>
+          <item>Success criteria</item>
+        </test_mode_receives>
+        <test_mode_actions>
+          <action>Review specifications</action>
+          <action>Validate test patterns</action>
+          <action>Map test dependencies</action>
+          <action>Plan test implementation</action>
+        </test_mode_actions>
+      </design_reception>
+
+      <implementation>
+        <test_mode_provides>
+          <item>Follow test design</item>
+          <item>Use testing patterns</item>
+          <item>Maintain test standards</item>
+          <item>Update test documentation</item>
+        </test_mode_provides>
+      </implementation>
+
+      <handoff_to_architect>
+        <triggers>
+          <trigger>needs_architectural_changes - Test requirements reveal design issues</trigger>
+          <trigger>design_clarification_needed - Test specifications unclear</trigger>
+          <trigger>pattern_violation_found - Tests reveal architectural violations</trigger>
+        </triggers>
+        <context_to_provide>
+          <item>Test findings</item>
+          <item>Design concerns</item>
+          <item>Pattern violations</item>
+          <item>Coverage gaps</item>
+        </context_to_provide>
+      </handoff_to_architect>
+
+      <handoff_from_architect>
+        <triggers>
+          <trigger>implementation_needed - Test design complete, ready for implementation</trigger>
+          <trigger>code_modification_needed - Architecture changes require new tests</trigger>
+          <trigger>refactoring_required - Design changes need test updates</trigger>
+        </triggers>
+        <context_to_receive>
+          <item>Updated specifications</item>
+          <item>New patterns</item>
+          <item>Refactoring plan</item>
+          <item>Success criteria</item>
+        </context_to_receive>
+      </handoff_from_architect>
+    </pattern>
+
+    <pattern mode="code">
+      <problem_communication>
+        <test_mode_provides_to_code>
+          <item>Error context</item>
+          <item>Stack traces</item>
+          <item>Test failure details</item>
+          <item>Reproduction steps</item>
+        </test_mode_provides_to_code>
+        <format><![CDATA[
+Test Failure Report:
+- Test: [test name]
+- Error: [error message]
+- Expected: [expected behavior]
+- Actual: [actual behavior]
+- Stack Trace: [trace]
+- Steps: [reproduction steps]
+        ]]></format>
+      </problem_communication>
+
+      <fix_handoff>
+        <test_mode_provides>
+          <item>Clear fix instructions</item>
+          <item>Risk factors</item>
+          <item>Test criteria for validation</item>
+          <item>Validation points</item>
+        </test_mode_provides>
+      </fix_handoff>
+
+      <handoff_to_code>
+        <triggers>
+          <trigger>fix_implementation_needed - Tests written, implementation needed</trigger>
+          <trigger>performance_fix_required - Performance tests fail</trigger>
+          <trigger>error_fix_ready - Bug identified, fix needed</trigger>
+        </triggers>
+        <context_to_provide>
+          <item>Test cases (TDD)</item>
+          <item>Expected behavior</item>
+          <item>Acceptance criteria</item>
+          <item>Risk assessment</item>
+        </context_to_provide>
+      </handoff_to_code>
+
+      <handoff_from_code>
+        <triggers>
+          <trigger>error_investigation_needed - Code fails, need test analysis</trigger>
+          <trigger>performance_issue_found - Performance problem detected</trigger>
+          <trigger>system_analysis_required - System behavior needs testing</trigger>
+        </triggers>
+        <context_to_receive>
+          <item>Implementation details</item>
+          <item>Known issues</item>
+          <item>Test requirements</item>
+          <item>Success criteria</item>
+        </context_to_receive>
+      </handoff_from_code>
+    </pattern>
+
+    <pattern mode="debug">
+      <problem_solving>
+        <debug_mode_provides>
+          <item>Fix bugs identified by tests</item>
+          <item>Optimize code based on performance tests</item>
+          <item>Handle errors found in testing</item>
+          <item>Add logging for test scenarios</item>
+        </debug_mode_provides>
+        <test_mode_supports_with>
+          <item>Provide test context</item>
+          <item>Share failure metrics</item>
+          <item>Test proposed fixes</item>
+          <item>Document test solutions</item>
+        </test_mode_supports_with>
+      </problem_solving>
+
+      <analysis_support>
+        <test_mode_provides>
+          <item>Test failure patterns</item>
+          <item>Performance metrics</item>
+          <item>Error reproduction steps</item>
+          <item>Test coverage data</item>
+        </test_mode_provides>
+      </analysis_support>
+
+      <handoff_to_debug>
+        <triggers>
+          <trigger>error_investigation_needed - Test fails, root cause unknown</trigger>
+          <trigger>performance_issue_found - Performance tests reveal issues</trigger>
+          <trigger>system_analysis_required - System behavior analysis needed</trigger>
+        </triggers>
+        <context_to_provide>
+          <item>Test failures</item>
+          <item>Error logs</item>
+          <item>Performance data</item>
+          <item>Reproduction steps</item>
+          <item>Expected behavior</item>
+        </context_to_provide>
+        <example><![CDATA[
+Handoff to Debug Mode:
+
+Issue: Performance test failing
+Test: load_test_user_authentication
+Expected: <200ms response time
+Actual: 1200ms response time
+Environment: Production-like load (100 concurrent users)
+Reproduction: Run `npm test -- load_test_user_authentication`
+
+Additional Context:
+- Started after recent database changes
+- Only affects authenticated endpoints
+- Memory usage normal
+        ]]></example>
+      </handoff_to_debug>
+
+      <handoff_from_debug>
+        <triggers>
+          <trigger>fix_implementation_ready - Root cause found, fix ready to test</trigger>
+          <trigger>performance_fix_needed - Performance issue identified</trigger>
+          <trigger>error_pattern_found - Error pattern discovered</trigger>
+        </triggers>
+        <context_to_receive>
+          <item>Root cause analysis</item>
+          <item>Proposed fix</item>
+          <item>Test scenarios</item>
+          <item>Validation criteria</item>
+        </context_to_receive>
+      </handoff_from_debug>
+    </pattern>
+
+    <pattern mode="ask">
+      <knowledge_share>
+        <ask_mode_provides>
+          <item>Explain test code</item>
+          <item>Document test changes</item>
+          <item>Share testing patterns</item>
+          <item>Guide test usage</item>
+        </ask_mode_provides>
+        <test_mode_provides>
+          <item>Test documentation</item>
+          <item>Coverage reports</item>
+          <item>Test patterns</item>
+          <item>Usage examples</item>
+        </test_mode_provides>
+      </knowledge_share>
+
+      <documentation>
+        <collaborative_activities>
+          <activity>Update test documentation</activity>
+          <activity>Add test examples</activity>
+          <activity>Clarify test usage</activity>
+          <activity>Share test context</activity>
+        </collaborative_activities>
+      </documentation>
+
+      <handoff_to_ask>
+        <triggers>
+          <trigger>documentation_needed - Test documentation incomplete</trigger>
+          <trigger>implementation_explanation - Test approach needs explanation</trigger>
+          <trigger>pattern_documentation - Testing patterns need documentation</trigger>
+        </triggers>
+        <context_to_provide>
+          <item>Test code</item>
+          <item>Testing patterns</item>
+          <item>Coverage goals</item>
+          <item>Usage scenarios</item>
+        </context_to_provide>
+      </handoff_to_ask>
+
+      <handoff_from_ask>
+        <triggers>
+          <trigger>clarification_received - Testing requirements clarified</trigger>
+          <trigger>documentation_complete - Test documentation ready</trigger>
+          <trigger>knowledge_shared - Testing concepts explained</trigger>
+        </triggers>
+        <context_to_receive>
+          <item>Clarified requirements</item>
+          <item>Documentation</item>
+          <item>Best practices</item>
+          <item>Usage guidance</item>
+        </context_to_receive>
+      </handoff_from_ask>
+    </pattern>
+
+    <pattern mode="default">
+      <global_mode_access>
+        <default_mode_capabilities>
+          <capability>Access to all tools</capability>
+          <capability>Mode-independent actions</capability>
+          <capability>System-wide commands</capability>
+          <capability>Memory Bank functionality</capability>
+        </default_mode_capabilities>
+      </global_mode_access>
+
+      <mode_fallback>
+        <use_default_mode_for>
+          <scenario>Troubleshooting test mode issues</scenario>
+          <scenario>Global tool use</scenario>
+          <scenario>Mode transition guidance</scenario>
+          <scenario>Memory Bank updates</scenario>
+        </use_default_mode_for>
+      </mode_fallback>
+
+      <handoff_triggers>
+        <trigger>global_mode_access - Need system-wide operations</trigger>
+        <trigger>mode_independent_actions - Actions outside test scope</trigger>
+        <trigger>system_wide_commands - System-level commands needed</trigger>
+      </handoff_triggers>
+    </pattern>
+  </collaboration_patterns>
+
+  <mode_transition_triggers>
+    <architect_mode_triggers>
+      <trigger>needs_architectural_changes - Tests reveal design flaws</trigger>
+      <trigger>design_clarification_needed - Test requirements unclear</trigger>
+      <trigger>pattern_violation_found - Tests find architectural issues</trigger>
+    </architect_mode_triggers>
+
+    <debug_mode_triggers>
+      <trigger>error_investigation_needed - Test failures need investigation</trigger>
+      <trigger>performance_issue_found - Performance tests fail</trigger>
+      <trigger>system_analysis_required - System behavior analysis needed</trigger>
+    </debug_mode_triggers>
+
+    <code_mode_triggers>
+      <trigger>implementation_needed - Tests written (TDD), code needed</trigger>
+      <trigger>code_modification_needed - Tests require code changes</trigger>
+      <trigger>refactoring_required - Tests indicate refactoring needed</trigger>
+    </code_mode_triggers>
+
+    <ask_mode_triggers>
+      <trigger>documentation_needed - Test documentation incomplete</trigger>
+      <trigger>implementation_explanation - Testing approach unclear</trigger>
+      <trigger>pattern_documentation - Test patterns need documentation</trigger>
+    </ask_mode_triggers>
+
+    <default_mode_triggers>
+      <trigger>global_mode_access - System-wide operations needed</trigger>
+      <trigger>mode_independent_actions - Actions outside test scope</trigger>
+      <trigger>system_wide_commands - System-level commands required</trigger>
+    </default_mode_triggers>
+  </mode_transition_triggers>
+
+  <best_practices>
+    <clear_communication>
+      <always_include>
+        <item>Current context</item>
+        <item>Specific issue or task</item>
+        <item>Expected outcome</item>
+        <item>Relevant data/logs</item>
+        <item>Success criteria</item>
+      </always_include>
+    </clear_communication>
+
+    <context_preservation>
+      <handoff_checklist>
+        <item>Document current test state</item>
+        <item>Provide test results/logs</item>
+        <item>Specify expected behavior</item>
+        <item>Include reproduction steps</item>
+        <item>Note dependencies</item>
+      </handoff_checklist>
+    </context_preservation>
+
+    <efficient_workflows>
+      <tdd_workflow><![CDATA[
+1. Test Mode: Write failing test
+2. Handoff to Code Mode: Implement feature
+3. Test Mode: Run tests
+4. If fail → Debug Mode: Investigate
+5. If pass → Continue
+      ]]></tdd_workflow>
+
+      <bug_fix_workflow><![CDATA[
+1. Test Mode: Identify failure
+2. Handoff to Debug Mode: Find root cause
+3. Handoff to Code Mode: Implement fix
+4. Test Mode: Verify fix
+      ]]></bug_fix_workflow>
+
+      <performance_workflow><![CDATA[
+1. Test Mode: Run performance tests
+2. If slow → Debug Mode: Profile and analyze
+3. Handoff to Code Mode: Optimize
+4. Test Mode: Verify improvement
+      ]]></performance_workflow>
+    </efficient_workflows>
+
+    <documentation_standards>
+      <handoff_documentation>
+        <guideline>Use clear, concise language</guideline>
+        <guideline>Provide complete context</guideline>
+        <guideline>Include all relevant data</guideline>
+        <guideline>Specify success criteria</guideline>
+        <guideline>Note time-sensitive issues</guideline>
+      </handoff_documentation>
+    </documentation_standards>
+  </best_practices>
+</mode_collaboration>

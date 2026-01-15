@@ -1,0 +1,287 @@
+<umb_rules>
+  <overview>
+    <description>
+      UMB (Update Memory Bank) is a special command that halts current activity 
+      and performs comprehensive Memory Bank synchronization across all modes and activities.
+    </description>
+    <trigger_pattern>^(Update Memory Bank|UMB)$</trigger_pattern>
+  </overview>
+
+  <command_trigger>
+    <pattern>^(Update Memory Bank|UMB)$</pattern>
+    <description>Exact match for either "Update Memory Bank" or "UMB"</description>
+  </command_trigger>
+
+  <umb_workflow>
+    <step number="1">
+      <action>Halt Current Task</action>
+      <description>Stop current activity immediately when UMB command is received</description>
+    </step>
+
+    <step number="2">
+      <action>Acknowledge Command</action>
+      <user_message>[MEMORY BANK: UPDATING]</user_message>
+      <description>Display status message to user indicating update is in progress</description>
+    </step>
+
+    <step number="3">
+      <action>Review Chat History</action>
+      <description>Analyze complete chat session to extract all relevant information</description>
+    </step>
+  </umb_workflow>
+
+  <core_update_process>
+    <phase number="1">
+      <name>Current Session Review</name>
+      <description>Comprehensive analysis of the entire chat session</description>
+      <activities>
+        <activity>Analyze complete chat history</activity>
+        <activity>Extract cross-mode information</activity>
+        <activity>Track mode transitions</activity>
+        <activity>Map activity relationships</activity>
+      </activities>
+    </phase>
+
+    <phase number="2">
+      <name>Comprehensive Updates</name>
+      <description>Update from all mode perspectives</description>
+      <activities>
+        <activity>Update from all mode perspectives</activity>
+        <activity>Preserve context across modes</activity>
+        <activity>Maintain activity threads</activity>
+        <activity>Document mode interactions</activity>
+      </activities>
+    </phase>
+
+    <phase number="3">
+      <name>Memory Bank Synchronization</name>
+      <description>Ensure all Memory Bank files are synchronized</description>
+      <activities>
+        <activity>Update all affected *.md files</activity>
+        <activity>Ensure cross-mode consistency</activity>
+        <activity>Preserve activity context</activity>
+        <activity>Document continuation points</activity>
+      </activities>
+    </phase>
+  </core_update_process>
+
+  <task_focus>
+    <description>
+      During a UMB update, focus on capturing any clarifications, questions answered, 
+      or context provided *during the chat session*. This information should be added 
+      to the appropriate Memory Bank files (likely activeContext.md or decisionLog.md), 
+      using the other modes' update formats as a guide. Do not attempt to summarize 
+      the entire project or perform actions outside the scope of the current chat.
+    </description>
+  </task_focus>
+
+  <cross_mode_updates>
+    <description>
+      During a UMB update, ensure that all relevant information from the chat session 
+      is captured and added to the Memory Bank. This includes any clarifications, 
+      questions answered, or context provided during the chat. Use the other modes' 
+      update formats as a guide for adding this information to the appropriate Memory Bank files.
+    </description>
+    
+    <synchronization_principles>
+      <principle>Capture information from all mode activities</principle>
+      <principle>Maintain chronological order of updates</principle>
+      <principle>Preserve relationships between different activities</principle>
+      <principle>Document mode-specific insights and decisions</principle>
+      <principle>Ensure continuity for next session</principle>
+    </synchronization_principles>
+  </cross_mode_updates>
+
+  <post_umb_actions>
+    <completion_messages>
+      <message>Memory Bank fully synchronized</message>
+      <message>All mode contexts preserved</message>
+      <message>Session can be safely closed</message>
+      <message>Next assistant will have complete context</message>
+    </completion_messages>
+    <description>
+      After completing the UMB update, inform the user that the Memory Bank 
+      has been fully synchronized and the session state has been preserved for continuity.
+    </description>
+  </post_umb_actions>
+
+  <override_settings>
+    <override name="file_restrictions">
+      <value>true</value>
+      <description>
+        UMB command overrides normal file restriction rules, allowing updates 
+        to all Memory Bank files regardless of current mode's file restrictions.
+      </description>
+    </override>
+    
+    <override name="mode_restrictions">
+      <value>true</value>
+      <description>
+        UMB command overrides mode-specific restrictions, allowing comprehensive 
+        updates from any mode perspective.
+      </description>
+    </override>
+  </override_settings>
+
+  <update_guidelines>
+    <guideline priority="high">
+      <name>Comprehensive Capture</name>
+      <description>
+        Capture all significant information from the chat session, including:
+        - User questions and clarifications
+        - Decisions made during the session
+        - Implementation details discussed
+        - Mode transitions and reasons
+        - Open questions or issues raised
+        - Progress made on tasks
+      </description>
+    </guideline>
+
+    <guideline priority="high">
+      <name>Timestamp Consistency</name>
+      <description>
+        All UMB updates must include timestamps in the format YYYY-MM-DD HH:MM:SS
+      </description>
+    </guideline>
+
+    <guideline priority="medium">
+      <name>Cross-Reference Mode Activities</name>
+      <description>
+        When updating Memory Bank files, note which mode(s) were involved in 
+        specific activities or decisions to maintain clear context.
+      </description>
+    </guideline>
+
+    <guideline priority="medium">
+      <name>Preserve Session Continuity</name>
+      <description>
+        Document sufficient context so that the next session can continue 
+        seamlessly from where this session ended.
+      </description>
+    </guideline>
+  </update_guidelines>
+
+  <files_to_update>
+    <file name="activeContext.md">
+      <update_triggers>
+        <trigger>Current focus changes during session</trigger>
+        <trigger>Recent activities completed</trigger>
+        <trigger>New questions or issues raised</trigger>
+      </update_triggers>
+      <update_format>[YYYY-MM-DD HH:MM:SS] - [Summary of context change]</update_format>
+    </file>
+
+    <file name="decisionLog.md">
+      <update_triggers>
+        <trigger>Architectural decisions made</trigger>
+        <trigger>Technical choices discussed</trigger>
+        <trigger>Implementation approaches selected</trigger>
+      </update_triggers>
+      <update_format>[YYYY-MM-DD HH:MM:SS] - [Decision] - [Rationale]</update_format>
+    </file>
+
+    <file name="progress.md">
+      <update_triggers>
+        <trigger>Tasks completed</trigger>
+        <trigger>New tasks identified</trigger>
+        <trigger>Progress milestones reached</trigger>
+      </update_triggers>
+      <update_format>[YYYY-MM-DD HH:MM:SS] - [Progress update]</update_format>
+    </file>
+
+    <file name="systemPatterns.md">
+      <update_triggers>
+        <trigger>New patterns introduced</trigger>
+        <trigger>Existing patterns modified</trigger>
+        <trigger>Pattern usage documented</trigger>
+      </update_triggers>
+      <update_format>[YYYY-MM-DD HH:MM:SS] - [Pattern description]</update_format>
+    </file>
+
+    <file name="productContext.md">
+      <update_triggers>
+        <trigger>Project goals clarified or changed</trigger>
+        <trigger>Architecture updated</trigger>
+        <trigger>Key features added or modified</trigger>
+      </update_triggers>
+      <update_format>[YYYY-MM-DD HH:MM:SS] - [Context update]</update_format>
+    </file>
+  </files_to_update>
+
+  <example_umb_execution>
+    <scenario>
+      User sends "UMB" after a session involving Code mode and Architect mode discussions
+    </scenario>
+    
+    <execution_steps>
+      <step number="1">
+        <action>Acknowledge</action>
+        <output>[MEMORY BANK: UPDATING]</output>
+      </step>
+
+      <step number="2">
+        <action>Review Session</action>
+        <activities>
+          <activity>Identify all mode switches and activities</activity>
+          <activity>Extract key decisions and discussions</activity>
+          <activity>Note progress on tasks</activity>
+          <activity>Capture open questions</activity>
+        </activities>
+      </step>
+
+      <step number="3">
+        <action>Update Files</action>
+        <updates>
+          <update file="decisionLog.md">Add architectural decisions made during session</update>
+          <update file="progress.md">Update task completion status</update>
+          <update file="activeContext.md">Update current focus and recent changes</update>
+          <update file="systemPatterns.md">Document any new patterns introduced</update>
+        </updates>
+      </step>
+
+      <step number="4">
+        <action>Confirm Completion</action>
+        <output>
+          Memory Bank fully synchronized
+          All mode contexts preserved
+          Session can be safely closed
+          Next assistant will have complete context
+        </output>
+      </step>
+    </execution_steps>
+  </example_umb_execution>
+
+  <best_practices>
+    <practice>
+      <name>Regular UMB Usage</name>
+      <description>
+        Encourage users to run UMB at natural breakpoints in work sessions, 
+        especially before switching to different tasks or ending a session.
+      </description>
+    </practice>
+
+    <practice>
+      <name>Comprehensive but Focused</name>
+      <description>
+        Capture all relevant information but avoid redundancy. Focus on what's 
+        new or changed during the current session.
+      </description>
+    </practice>
+
+    <practice>
+      <name>Clear Attribution</name>
+      <description>
+        When documenting decisions or changes, note which mode was active or 
+        which modes were involved to maintain clear context.
+      </description>
+    </practice>
+
+    <practice>
+      <name>Forward-Looking Context</name>
+      <description>
+        Include enough context so the next session understands not just what 
+        was done, but what should happen next.
+      </description>
+    </practice>
+  </best_practices>
+</umb_rules>

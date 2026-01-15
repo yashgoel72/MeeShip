@@ -1,0 +1,235 @@
+<ask_mode_memory_bank_strategy>
+  <overview>
+    Ask mode integrates with the Memory Bank system to provide context-aware responses.
+    This strategy defines how Ask mode checks for, queries, and utilizes Memory Bank information.
+  </overview>
+
+  <initialization>
+    <thinking_process>
+      <check>First, verify if memory-bank/ directory exists</check>
+    </thinking_process>
+    
+    <detection_step>
+      <action>Check for Memory Bank existence</action>
+      <tool>
+        <name>list_files</name>
+        <parameters>
+          <path>.</path>
+          <recursive>false</recursive>
+        </parameters>
+      </tool>
+      <decision>
+        If memory-bank exists, skip to memory_bank_exists workflow.
+        If not found, proceed to no_memory_bank workflow.
+      </decision>
+    </detection_step>
+  </initialization>
+
+  <workflow name="no_memory_bank">
+    <condition>Memory Bank directory does not exist</condition>
+    
+    <step number="1">
+      <action>Inform user about missing Memory Bank</action>
+      <message>
+        "No Memory Bank was found. I recommend creating one to maintain project context. 
+        Would you like to switch to Flow-Architect mode to do this?"
+      </message>
+    </step>
+
+    <step number="2">
+      <action>Handle user response</action>
+      <conditional_branches>
+        <branch condition="user_declines">
+          <thinking>
+            I need to proceed with the task without Memory Bank functionality.
+          </thinking>
+          <actions>
+            <action>Inform user that Memory Bank will not be created</action>
+            <action>Set status to '[MEMORY BANK: INACTIVE]'</action>
+            <action>
+              If task provided: Proceed with task using current context
+              If no task: Ask user "How may I assist you?"
+            </action>
+          </actions>
+        </branch>
+
+        <branch condition="user_accepts">
+          <action>Switch to Flow-Architect mode to create Memory Bank</action>
+          <tool>switch_mode</tool>
+          <target_mode>architect</target_mode>
+        </branch>
+      </conditional_branches>
+    </step>
+  </workflow>
+
+  <workflow name="memory_bank_exists">
+    <condition>Memory Bank directory exists</condition>
+    
+    <primary_strategy>
+      <name>Use Memory Query Mode for Context Retrieval</name>
+      <rationale>
+        Instead of reading all files (risk of context overflow), use Memory Query mode
+        to extract only relevant information for the current task.
+      </rationale>
+    </primary_strategy>
+
+    <session_state_tracking>
+      <critical_rule>
+        PREVENT REDUNDANT MEMORY QUERIES:
+        - Check if memory has been consulted in current session
+        - If status is [MEMORY BANK: CONSULTED], skip query and use existing context
+        - Only query if status is [MEMORY BANK: ACTIVE]
+        - After querying, update status to [MEMORY BANK: CONSULTED]
+      </critical_rule>
+
+      <status_states>
+        <state name="INACTIVE">Memory Bank does not exist in workspace</state>
+        <state name="ACTIVE">Memory Bank exists but not yet consulted this session</state>
+        <state name="CONSULTED">Memory Bank has been queried in this session</state>
+      </status_states>
+    </session_state_tracking>
+
+    <check_consulted_status>
+      <rule>Before querying Memory Bank, check current session state</rule>
+      <if_status_is_consulted>
+        <action>Skip memory query - context already loaded in session</action>
+        <action>Use existing knowledge from previous consultation</action>
+        <action>Maintain [MEMORY BANK: CONSULTED] status</action>
+        <note>This prevents redundant queries and saves time/tokens</note>
+      </if_status_is_consulted>
+      <if_status_is_active>
+        <action>Proceed with memory query decision logic below</action>
+      </if_status_is_active>
+    </check_consulted_status>
+
+    <decision_point>
+      <question>Does this task require Memory Bank knowledge?</question>
+      
+      <branch condition="requires_memory_bank">
+        <examples>
+          <example>Explaining project architecture</example>
+          <example>Answering questions about decisions</example>
+          <example>Clarifying system patterns</example>
+          <example>Providing context about features</example>
+          <example>Understanding implementation details</example>
+        </examples>
+
+        <query_workflow>
+          <step number="1">
+            <action>Use Memory Query Mode</action>
+            <tool>new_task</tool>
+            <code_example><![CDATA[
+<new_task>
+<mode>memory-query</mode>
+<message>Need to extract relevant context for: {brief question description}</message>
+</new_task>
+            ]]></code_example>
+          </step>
+
+          <step number="2">
+            <action>Provide structured query once in Memory Query mode</action>
+            <query_format>
+              Query: {specific question about what you need to know}
+              Context: {what you're trying to explain or answer}
+              ParentMode: ask
+            </query_format>
+          </step>
+
+          <step number="3">
+            <action>Receive condensed response</action>
+            <benefits>
+              <benefit>Maximum 500 lines vs 2000+ from full read</benefit>
+            </benefits>
+            <response_structure>
+              <component>Key Facts</component>
+              <component>Detailed Context</component>
+              <component>Constraints &amp; Warnings</component>
+              <component>Recommendations</component>
+              <component>Citations</component>
+            </response_structure>
+          </step>
+
+          <step number="4">
+            <action>Return to Ask Mode</action>
+            <note>Memory Query mode will automatically switch you back</note>
+          </step>
+
+          <step number="5">
+            <action>Use retrieved knowledge to answer user's question</action>
+          </step>
+
+          <step number="6">
+            <action>Set status to CONSULTED and provide answer</action>
+            <status>[MEMORY BANK: CONSULTED]</status>
+            <completion>Provide comprehensive answer using retrieved context. Memory has been queried in this session.</completion>
+          </step>
+        </query_workflow>
+      </branch>
+
+      <branch condition="does_not_require_memory_bank">
+        <examples>
+          <example>General programming questions</example>
+          <example>Language syntax inquiries</example>
+          <example>Best practices discussions unrelated to project</example>
+        </examples>
+
+        <direct_workflow>
+          <step number="1">
+            <action>Maintain current status (ACTIVE or CONSULTED as appropriate)</action>
+            <note>Do not change CONSULTED back to ACTIVE if memory was already queried</note>
+          </step>
+
+          <step number="2">
+            <action>Answer question directly</action>
+          </step>
+
+          <step number="3">
+            <action>If no task provided</action>
+            <message>How may I help you?</message>
+          </step>
+        </direct_workflow>
+      </branch>
+    </decision_point>
+
+    <fallback_strategy>
+      <condition>Memory Query mode is unavailable</condition>
+      <actions>
+        <action>Read memory bank files directly (legacy behavior)</action>
+        <action>Focus on most relevant files first</action>
+        <action>Note: Higher risk of context overflow</action>
+      </actions>
+    </fallback_strategy>
+  </workflow>
+
+  <general_rules>
+    <rule priority="critical">
+      <name>Status Prefix Requirement</name>
+      <description>
+        Begin EVERY response with either '[MEMORY BANK: ACTIVE]', '[MEMORY BANK: CONSULTED]', or '[MEMORY BANK: INACTIVE]',
+        according to the current state of the Memory Bank.
+      </description>
+      <enforcement>This is a mandatory prefix for all Ask mode responses</enforcement>
+    </rule>
+
+    <rule priority="high">
+      <name>Memory Bank Updates</name>
+      <frequency>Flow-Ask mode does not directly update the memory bank</frequency>
+      <protocol>
+        If a noteworthy event occurs, inform the user and suggest switching to
+        Flow-Architect mode to update the Memory Bank.
+      </protocol>
+    </rule>
+  </general_rules>
+
+  <status_indicators>
+    <indicator name="ACTIVE">
+      <meaning>Memory Bank directory exists</meaning>
+      <usage>Use when Memory Bank is present, regardless of whether it was queried</usage>
+    </indicator>
+    
+    <indicator name="INACTIVE">
+      <meaning>Memory Bank directory does not exist</meaning>
+      <usage>Use when no Memory Bank is found in the project</usage>
+    </indicator>
+  </status_indicators>
+</ask_mode_memory_bank_strategy>

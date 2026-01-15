@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<umb_rules>
+  <overview>
+    UMB (Update Memory Bank) rules for Test mode, including trigger patterns,
+    temporary access overrides, comprehensive update processes, and cross-mode analysis.
+  </overview>
+
+  <trigger>
+    <pattern>^(Update Memory Bank|UMB)$</pattern>
+  </trigger>
+
+  <instructions>
+    <when_umb_received>
+      <action>Halt Current Task: Stop current activity</action>
+      <action>Acknowledge Command: '[MEMORY BANK: UPDATING]'</action>
+      <action>Review Chat History</action>
+    </when_umb_received>
+  </instructions>
+
+  <temporary_access_override>
+    <overview>
+      During UMB operation, Test mode gains temporary elevated access
+    </overview>
+
+    <access_level_override>
+      <temporary_permissions>
+        <permission>Full tool access granted</permission>
+        <permission>All mode capabilities enabled</permission>
+        <permission>All file restrictions temporarily lifted for Memory Bank updates</permission>
+        <permission>Can modify Memory Bank files (normally read-only in Test mode)</permission>
+      </temporary_permissions>
+      <note>
+        This override is TEMPORARY and only active during UMB operations
+      </note>
+    </access_level_override>
+
+    <cross_mode_analysis>
+      <during_umb_analyze>
+        <item>Review all test mode activities</item>
+        <item>Identify test-related actions across modes</item>
+        <item>Collect all relevant test updates</item>
+        <item>Track test dependency chains</item>
+        <item>Map test coverage evolution</item>
+      </during_umb_analyze>
+    </cross_mode_analysis>
+  </temporary_access_override>
+
+  <core_update_process>
+    <current_session_review>
+      <analyze>
+        <item>Complete chat history</item>
+        <item>Extract cross-mode test information</item>
+        <item>Track mode transitions related to testing</item>
+        <item>Map test activity relationships</item>
+        <item>Identify test failures and resolutions</item>
+      </analyze>
+
+      <focus_on>
+        <item>Tests written (TDD approach)</item>
+        <item>Tests executed</item>
+        <item>Test results (pass/fail)</item>
+        <item>Coverage metrics</item>
+        <item>Test failures investigated</item>
+        <item>Fixes validated</item>
+        <item>Mode handoffs for testing</item>
+      </focus_on>
+    </current_session_review>
+
+    <comprehensive_updates>
+      <update_from_test_perspective>
+        <item>Test creation and execution</item>
+        <item>Test results and metrics</item>
+        <item>Coverage progress</item>
+        <item>Test failures and resolutions</item>
+        <item>Testing patterns used</item>
+        <item>Mode collaborations</item>
+      </update_from_test_perspective>
+
+      <preserve_context>
+        <item>Test state across modes</item>
+        <item>Coverage evolution</item>
+        <item>Failure tracking</item>
+        <item>Resolution paths</item>
+        <item>Pattern adoption</item>
+      </preserve_context>
+
+      <maintain_activity_threads>
+        <item>TDD cycles</item>
+        <item>Test → Code → Test flows</item>
+        <item>Failure → Debug → Fix → Retest flows</item>
+        <item>Coverage improvement efforts</item>
+      </maintain_activity_threads>
+
+      <document_mode_interactions>
+        <item>Handoffs to Code mode for implementation</item>
+        <item>Handoffs to Debug mode for investigation</item>
+        <item>Handoffs to Architect mode for design issues</item>
+        <item>Handoffs from other modes for testing</item>
+      </document_mode_interactions>
+    </comprehensive_updates>
+
+    <memory_bank_synchronization>
+      <update_all_affected_files>
+        <file name="activeContext.md">
+          <update_with>
+            <item>Current testing focus</item>
+            <item>Recent test results</item>
+            <item>Active test failures</item>
+            <item>Coverage status</item>
+            <item>Open test issues</item>
+          </update_with>
+        </file>
+
+        <file name="decisionLog.md">
+          <update_with>
+            <item>Testing strategy decisions</item>
+            <item>Framework choices</item>
+            <item>Coverage goal changes</item>
+            <item>Pattern adoptions</item>
+            <item>Test approach modifications</item>
+          </update_with>
+        </file>
+
+        <file name="progress.md">
+          <update_with>
+            <item>Tests created</item>
+            <item>Tests executed</item>
+            <item>Coverage milestones</item>
+            <item>Failures resolved</item>
+            <item>Quality improvements</item>
+          </update_with>
+        </file>
+
+        <file name="systemPatterns.md">
+          <update_with>
+            <item>Testing patterns implemented</item>
+            <item>Test organization structure</item>
+            <item>Reusable test utilities</item>
+            <item>Best practices adopted</item>
+          </update_with>
+        </file>
+
+        <file name="productContext.md">
+          <update_with>
+            <item>Major testing infrastructure changes</item>
+            <item>Overall quality metrics</item>
+            <item>Test coverage achievements</item>
+          </update_with>
+        </file>
+      </update_all_affected_files>
+
+      <ensure>
+        <item>Cross-mode consistency</item>
+        <item>Preserve test context</item>
+        <item>Document continuation points</item>
+        <item>Maintain test thread history</item>
+      </ensure>
+    </memory_bank_synchronization>
+  </core_update_process>
+
+  <task_focus>
+    <during_umb_capture>
+      <item>Test Clarifications: Any test requirements clarified during the chat session</item>
+      <item>Questions Answered: Testing questions resolved</item>
+      <item>Context Provided: Testing context shared during the session</item>
+      <item>Test Results: All test executions and outcomes</item>
+      <item>Coverage Data: Coverage metrics and progress</item>
+      <item>Failures Documented: Test failures and their resolutions</item>
+    </during_umb_capture>
+
+    <add_to_memory_bank_files>
+      <guideline>Use activeContext.md for current test state</guideline>
+      <guideline>Use decisionLog.md for testing decisions</guideline>
+      <guideline>Use progress.md for test completions</guideline>
+      <guideline>Use systemPatterns.md for test patterns</guideline>
+    </add_to_memory_bank_files>
+
+    <important>
+      Do NOT attempt to summarize the entire project or perform actions outside
+      the scope of the current chat session's testing activities.
+    </important>
+  </task_focus>
+
+  <cross_mode_updates>
+    <during_umb_ensure_capture>
+      <from_test_mode_activities>
+        <item>Tests written (TDD)</item>
+        <item>Tests executed</item>
+        <item>Results documented</item>
+        <item>Coverage measured</item>
+        <item>Failures tracked</item>
+      </from_test_mode_activities>
+
+      <from_code_mode_interactions>
+        <item>Implementation based on tests</item>
+        <item>Fixes applied after failures</item>
+        <item>Code changes validated by tests</item>
+      </from_code_mode_interactions>
+
+      <from_debug_mode_interactions>
+        <item>Root causes identified</item>
+        <item>Debugging insights</item>
+        <item>Performance analysis</item>
+        <item>Issue resolutions</item>
+      </from_debug_mode_interactions>
+
+      <from_architect_mode_interactions>
+        <item>Test design decisions</item>
+        <item>Architecture validations</item>
+        <item>Pattern compliance checks</item>
+      </from_architect_mode_interactions>
+    </during_umb_ensure_capture>
+
+    <guideline>
+      Use other modes' update formats as a guide for adding this cross-mode
+      information to appropriate Memory Bank files.
+    </guideline>
+  </cross_mode_updates>
+
+  <post_umb_actions>
+    <after_completing_updates>
+      <confirmation><![CDATA[
+[MEMORY BANK: SYNCHRONIZED]
+
+Memory Bank fully synchronized with:
+- All test activities documented
+- Test results and coverage recorded
+- Mode contexts preserved
+- Testing decisions captured
+- Failure resolutions noted
+
+Session can be safely closed.
+Next assistant will have complete testing context.
+
+Note: Temporary file access override deactivated.
+      ]]></confirmation>
+    </after_completing_updates>
+
+    <status_messages>
+      <message>Memory Bank fully synchronized</message>
+      <message>All mode contexts preserved</message>
+      <message>Session can be safely closed</message>
+      <message>Next assistant will have complete context</message>
+      <message>Note: God Mode override is TEMPORARY</message>
+    </status_messages>
+  </post_umb_actions>
+
+  <override_settings>
+    <during_umb_only>
+      <setting name="override_file_restrictions">true</setting>
+      <setting name="override_mode_restrictions">true</setting>
+    </during_umb_only>
+
+    <important>
+      These overrides are ONLY active during UMB operations and are automatically
+      deactivated when UMB completes.
+    </important>
+  </override_settings>
+
+  <testing_specific_umb_patterns>
+    <test_results_documentation>
+      <pattern><![CDATA[
+# Update Pattern for Test Results
+
+activeContext.md:
+[timestamp] - [Test] Executed test suite for [feature]. Results: X passed, Y failed. Coverage: Z%.
+
+progress.md:
+[timestamp] - [Test Progress] Completed [phase] testing. All tests passing. Coverage improved to Z%.
+
+decisionLog.md (if strategy changed):
+[timestamp] - [Test Decision] Adjusted coverage goals based on risk analysis. New target: Z% for critical paths.
+      ]]></pattern>
+    </test_results_documentation>
+
+    <test_failure_tracking>
+      <pattern><![CDATA[
+# Update Pattern for Test Failures
+
+activeContext.md:
+[timestamp] - [Test] Test failure in [test name]. Error: [message]. Investigating with Debug mode.
+
+[timestamp] - [Test] After debug investigation, identified [root cause]. Coordinating fix with Code mode.
+
+[timestamp] - [Test] Fix applied. Re-tested: PASS. Coverage maintained at Z%.
+
+progress.md:
+[timestamp] - [Test Progress] Resolved test failure in [test name]. All tests now passing.
+      ]]></pattern>
+    </test_failure_tracking>
+
+    <coverage_tracking>
+      <pattern><![CDATA[
+# Update Pattern for Coverage
+
+progress.md:
+[timestamp] - [Test Progress] Coverage milestone reached: Z% overall, Z1% critical paths, Z2% edge cases.
+
+systemPatterns.md:
+[timestamp] - [Test Pattern] Implemented systematic coverage tracking. Using [tool] for metrics.
+      ]]></pattern>
+    </coverage_tracking>
+  </testing_specific_umb_patterns>
+
+  <best_practices>
+    <do_list>
+      <practice>Document all test executions</practice>
+      <practice>Record coverage metrics</practice>
+      <practice>Track test failures and resolutions</practice>
+      <practice>Capture testing decisions</practice>
+      <practice>Preserve test context</practice>
+      <practice>Note mode collaborations</practice>
+      <practice>Update systematically</practice>
+    </do_list>
+
+    <dont_list>
+      <practice>Skip test result documentation</practice>
+      <practice>Forget coverage data</practice>
+      <practice>Lose failure context</practice>
+      <practice>Miss decision rationale</practice>
+      <practice>Ignore mode handoffs</practice>
+      <practice>Summarize beyond chat session</practice>
+    </dont_list>
+  </best_practices>
+</umb_rules>

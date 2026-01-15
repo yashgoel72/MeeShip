@@ -1,0 +1,392 @@
+<output_rules>
+  <overview>
+    <purpose>
+      Create actionable implementation plans in memory-bank/plans.md that AI agents 
+      (particularly Code mode) can execute within the current active session.
+    </purpose>
+    <key_principle>
+      Plans are execution blueprints for AI agents, not documentation for human users.
+      Focus on immediate actionability, clear step-by-step instructions, tool-specific 
+      guidance, exact file paths, decision points with fallback strategies, and mode handoff instructions.
+    </key_principle>
+  </overview>
+
+  <plan_structure>
+    <section name="execution_header">
+      <description>Metadata about the plan execution scope</description>
+      <template><![CDATA[
+## [Task Name]
+**Created:** [YYYY-MM-DD HH:MM:SS]
+**Target Mode:** Code (or specify if multi-mode)
+**Session Scope:** Current session execution
+**Estimated Steps:** [number]
+      ]]></template>
+    </section>
+
+    <section name="quick_context">
+      <description>3-5 bullet points maximum providing essential context</description>
+      <required_items>
+        <item>What needs to be done (one sentence)</item>
+        <item>Why (architectural rationale in 1-2 sentences)</item>
+        <item>Key constraints or requirements</item>
+        <item>Success indicator (how to know it's complete)</item>
+      </required_items>
+    </section>
+
+    <section name="prerequisites_check">
+      <description>What the executing agent should verify before starting</description>
+      <template><![CDATA[
+**Before starting, verify:**
+- [ ] File X exists at path/to/file
+- [ ] Dependency Y is installed (check with command Z)
+- [ ] Memory bank contains pattern P (query if needed)
+- [ ] No conflicting changes in files A, B, C
+      ]]></template>
+    </section>
+
+    <section name="step_by_step_execution">
+      <description>Format each step for immediate execution</description>
+      <step_template><![CDATA[
+### Step [N]: [Action Description]
+**Tool:** `tool_name`
+**Target:** `path/to/file.ext`
+**Action:** [Specific instruction]
+
+**Details:**
+- What to change/create/modify
+- Exact code patterns or structures to use
+- Where to place new code (after line X, in function Y)
+
+**Verification:**
+- How to confirm this step succeeded
+- Expected output or file state
+
+**If this fails:**
+- Fallback action
+- Alternative approach
+      ]]></step_template>
+    </section>
+
+    <section name="decision_points">
+      <description>When the agent needs to make choices</description>
+      <template><![CDATA[
+### Decision: [Question]
+**Context:** [Why this decision matters]
+
+**Option A:** [Description]
+- When to choose: [Criteria]
+- Implementation: [Brief steps]
+- Trade-offs: [Pros/cons]
+
+**Option B:** [Description]
+- When to choose: [Criteria]
+- Implementation: [Brief steps]
+- Trade-offs: [Pros/cons]
+
+**Recommended:** Option A (if criteria X is met)
+      ]]></template>
+    </section>
+
+    <section name="file_operations">
+      <description>Be explicit about file operations</description>
+      <template><![CDATA[
+### Files to Modify
+1. **`src/component.ts`**
+   - Tool: `apply_diff` (for surgical edits) or `write_to_file` (if new)
+   - Changes: [Specific changes]
+   - Lines: [Approximate line numbers or function names]
+
+2. **`tests/component.test.ts`**
+   - Tool: `write_to_file` (new file)
+   - Content: [Test structure to create]
+      ]]></template>
+    </section>
+
+    <section name="integration_testing">
+      <description>Post-implementation verification steps</description>
+      <template><![CDATA[
+### Post-Implementation Verification
+1. **Build/Compile Check**
+   - Command: `[specific command]`
+   - Expected: [Success criteria]
+
+2. **Test Execution**
+   - Command: `[test command]`
+   - Expected: [All tests pass / specific test output]
+
+3. **Linter/Type Check**
+   - Command: `[linter command]`
+   - Expected: [No errors]
+      ]]></template>
+    </section>
+
+    <section name="memory_bank_updates">
+      <description>Tell the agent exactly what to update</description>
+      <template><![CDATA[
+### Update Memory Bank After Completion
+1. **`decisionLog.md`** - Add: [Specific decision made]
+2. **`systemPatterns.md`** - Add: [New pattern if introduced]
+3. **`activeContext.md`** - Update: [Current focus status]
+4. **`progress.md`** - Add: [Completion milestone]
+      ]]></template>
+    </section>
+  </plan_structure>
+
+  <plan_lifecycle>
+    <status name="draft">
+      <description>Exploratory designs, multiple alternative approaches, pending stakeholder review</description>
+    </status>
+    <status name="active">
+      <description>Approved for implementation, currently being executed, actively updated during implementation</description>
+    </status>
+    <status name="completed">
+      <description>Implementation finished, success criteria met, marked as reference for future work</description>
+    </status>
+    <status name="archived">
+      <description>Superseded by newer plans, no longer relevant, kept for historical context</description>
+    </status>
+
+    <update_triggers>
+      <trigger>When design decisions are finalized</trigger>
+      <trigger>When implementation reveals new considerations</trigger>
+      <trigger>When requirements change</trigger>
+      <trigger>When risks materialize or are mitigated</trigger>
+      <trigger>When plan status changes (Draft → Active → Completed)</trigger>
+    </update_triggers>
+
+    <update_format>
+      <template><![CDATA[
+### Update Log
+- [YYYY-MM-DD HH:MM:SS] - [Description of changes]
+      ]]></template>
+    </update_format>
+  </plan_lifecycle>
+
+  <best_practices>
+    <practice category="tool_specificity">
+      <bad>Modify the authentication logic</bad>
+      <good>Use `apply_diff` on `src/auth.ts` to add OAuth2 validation at line 45</good>
+    </practice>
+
+    <practice category="exact_paths">
+      <bad>Update the config file</bad>
+      <good>Update `config/auth.config.ts` (exact path from project root)</good>
+    </practice>
+
+    <practice category="fallback_strategies">
+      <example><![CDATA[
+**If file doesn't exist:**
+- First use `list_files` to verify directory structure
+- Then create with `write_to_file`
+      ]]></example>
+    </practice>
+
+    <practice category="memory_bank_references">
+      <bad>Follow our patterns</bad>
+      <good>Query memory-query mode: 'What patterns apply to authentication services?'</good>
+    </practice>
+
+    <practice category="measurable_success">
+      <bad>It should work</bad>
+      <good>Execute: `npm test auth` - expect 15/15 tests passing</good>
+    </practice>
+
+    <practice category="atomic_steps">
+      <guideline>Each step should be independently executable</guideline>
+      <guideline>Verifiable before moving to next</guideline>
+      <guideline>Recoverable if failed</guideline>
+      <guideline>~5-10 minutes of work maximum</guideline>
+    </practice>
+
+    <practice category="failure_anticipation">
+      <common_failures>
+        <failure>File not found scenarios</failure>
+        <failure>Permission issues</failure>
+        <failure>Dependency problems</failure>
+        <failure>Type/compilation errors</failure>
+      </common_failures>
+    </practice>
+  </best_practices>
+
+  <quality_checklist>
+    <description>Before saving plan to memory-bank/plans.md, verify:</description>
+    <checklist_items>
+      <item>Every step specifies exact tool to use (apply_diff, write_to_file, etc.)</item>
+      <item>All file paths are complete from project root</item>
+      <item>Prerequisites are checkable (commands or file existence)</item>
+      <item>Success criteria are verifiable (commands to run, expected output)</item>
+      <item>Fallback strategies exist for common failure points</item>
+      <item>Memory bank queries specified when context needed</item>
+      <item>Steps are ordered with clear dependencies</item>
+      <item>Verification included after each step</item>
+      <item>Handoff instructions clear for target mode</item>
+      <item>Timestamps included on plan creation</item>
+    </checklist_items>
+  </quality_checklist>
+
+  <common_patterns>
+    <pattern name="file_modification">
+      <template><![CDATA[
+**Tool:** `apply_diff`
+**Target:** `exact/path/to/file.ts`
+**Search for:** [exact code snippet to find]
+**Replace with:** [exact new code]
+**Line guidance:** Around line 45, in function `authenticate()`
+      ]]></template>
+    </pattern>
+
+    <pattern name="new_file_creation">
+      <template><![CDATA[
+**Tool:** `write_to_file`
+**Target:** `exact/path/to/new-file.ts`
+**Content:** [Complete file content or structure description]
+**Line count:** [Expected number of lines]
+      ]]></template>
+    </pattern>
+
+    <pattern name="memory_bank_query">
+      <template><![CDATA[
+**Before this step, query memory-query mode:**
+Query: "What naming conventions apply to service classes?"
+Context: "Creating new AuthenticationService"
+ParentMode: code
+      ]]></template>
+    </pattern>
+
+    <pattern name="command_execution">
+      <template><![CDATA[
+**Tool:** `execute_command`
+**Command:** `npm test src/services/auth`
+**Expected output:** "15 passed, 0 failed"
+**If fails:** [Debugging steps]
+      ]]></template>
+    </pattern>
+  </common_patterns>
+
+  <complete_example>
+    <title>Implement User Authentication</title>
+    <example><![CDATA[
+## Implement User Authentication
+**Created:** 2025-01-15 14:30:00
+**Target Mode:** Code
+**Session Scope:** Current session execution
+**Estimated Steps:** 5
+
+### Quick Context
+- Implement OAuth2 authentication service replacing legacy auth
+- Architecture: Separate auth service with token-based sessions
+- Constraint: Must maintain backward compatibility during migration
+- Success: Users authenticate via OAuth2, legacy auth still works
+
+### Prerequisites Check
+**Before starting, verify:**
+- [ ] `src/services/` directory exists
+- [ ] TypeScript installed (check: `tsc --version`)
+- [ ] Memory bank has OAuth2 pattern (query memory-query if unsure)
+- [ ] No uncommitted changes in `src/auth/`
+
+### Step 1: Create AuthenticationService
+**Tool:** `write_to_file`
+**Target:** `src/services/AuthenticationService.ts`
+**Action:** Create new authentication service class
+
+**Details:**
+- Implement `IAuthService` interface
+- Methods: `authenticate()`, `validateToken()`, `refreshToken()`
+- Use OAuth2 library from project dependencies
+- Follow singleton pattern (see systemPatterns.md)
+
+**Verification:**
+- File created at exact path
+- No TypeScript compilation errors
+- Exports AuthenticationService class
+
+**If this fails:**
+- Check if `src/services/` needs creation first
+- Use `execute_command` to create directory if needed
+
+### Step 2: Add OAuth2 Configuration
+**Tool:** `apply_diff`
+**Target:** `config/auth.config.ts`
+**Action:** Add OAuth2 settings to existing config
+
+**Details:**
+- Add after existing auth configuration (line ~25)
+- Include: clientId, clientSecret, redirectUri, scopes
+- Use environment variables for secrets
+- Reference: See decisionLog.md entry [2025-01-10] for OAuth2 provider choice
+
+**Verification:**
+- Config exports OAuth2 settings
+- No duplicate keys
+- Environment variables properly referenced
+
+**If this fails:**
+- If file doesn't exist, use `write_to_file` instead
+- Check config structure in productContext.md
+
+### Step 3: Update Authentication Middleware
+**Tool:** `apply_diff`
+**Target:** `src/middleware/auth.middleware.ts`
+**Action:** Modify to support both legacy and OAuth2
+
+**Details:**
+- Add OAuth2 token validation branch
+- Keep legacy validation for backward compatibility
+- Order: Try OAuth2 first, fallback to legacy
+- Pattern: Strategy pattern (see systemPatterns.md)
+
+**Verification:**
+- Middleware handles both auth types
+- No breaking changes to existing routes
+- TypeScript types updated
+
+**If this fails:**
+- Read existing middleware first with `read_file`
+- Check for integration conflicts
+
+### Step 4: Add Unit Tests
+**Tool:** `write_to_file`
+**Target:** `tests/services/AuthenticationService.test.ts`
+**Action:** Create comprehensive test suite
+
+**Details:**
+- Test successful authentication
+- Test token validation (valid/invalid/expired)
+- Test refresh token flow
+- Mock OAuth2 provider responses
+
+**Verification:**
+- All tests pass: `npm test AuthenticationService`
+- Coverage >80%
+
+**If this fails:**
+- Check test framework setup
+- Verify mock library available
+
+### Step 5: Integration Test
+**Tool:** `execute_command`
+**Action:** Run full test suite and build
+
+**Commands:**
+1. `npm run build` - Should compile without errors
+2. `npm test` - All tests should pass
+3. `npm run lint` - No linting errors
+
+**If any fail:**
+- Fix compilation/linting errors immediately
+- Don't proceed to completion until clean
+
+### Update Memory Bank After Completion
+1. **`decisionLog.md`** - Add: OAuth2 implementation approach, dual-auth strategy
+2. **`systemPatterns.md`** - Add: Strategy pattern for authentication
+3. **`activeContext.md`** - Update: Mark OAuth2 auth as completed
+4. **`progress.md`** - Add: Authentication service implemented [date]
+    ]]></example>
+  </complete_example>
+
+  <reminder>
+    Plans are execution scripts for AI agents in the current session. 
+    Optimize for immediate, unambiguous action.
+  </reminder>
+</output_rules>
