@@ -1,7 +1,7 @@
 // Centralized API service for Meesho Image Optimizer
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || "";
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || "";
 
 export const apiRequest = async <T = any>(
   endpoint: string,

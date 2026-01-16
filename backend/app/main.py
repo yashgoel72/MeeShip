@@ -13,11 +13,15 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.config import Settings
 from app.routers import auth
 from app.routers import images
 from app.routers import dashboard
 from app.routers import payment
 from app.routers import kinde_auth
+
+# Initialize settings
+settings = Settings()
 
 # Configure logging
 logging.basicConfig(
@@ -47,16 +51,22 @@ app = FastAPI(
 )
 
 # CORS Configuration - Allow frontend origins
+allowed_origins = [
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:3000",  # Alternative dev port
+    "http://localhost:3001",  # Current dev port
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
+
+# Add production frontend URL from environment
+if settings.FRONTEND_URL and settings.FRONTEND_URL not in allowed_origins:
+    allowed_origins.append(settings.FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:3000",  # Alternative dev port
-        "http://localhost:3001",  # Current dev port
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -85,6 +95,55 @@ async def health_db(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
         return {"status": "unhealthy", "db": str(e)}
+
+
+@app.get("/storage-health", tags=["Health"])
+async def storage_health():
+    """S3 storage health check endpoint - uploads test file and returns presigned URL."""
+    try:
+        from app.services.s3_storage import upload_to_s3, generate_presigned_url
+        from app.config import get_settings
+        import uuid
+        from datetime import datetime, timezone
+        
+        settings = get_settings()
+        
+        if not settings.S3_ENABLED:
+            return {
+                "status": "disabled",
+                "message": "S3 storage is not enabled"
+            }
+        
+        # Create test data
+        test_content = f"Storage health check - {datetime.now(timezone.utc).isoformat()}".encode('utf-8')
+        test_filename = f"health_check_{uuid.uuid4().hex[:8]}.txt"
+        
+        # Upload test file
+        object_key = await upload_to_s3(
+            test_content,
+            filename=test_filename,
+            content_type="text/plain"
+        )
+        
+        # Generate presigned URL
+        presigned_result = await generate_presigned_url(object_key, expires_in=60)
+        
+        return {
+            "status": "healthy",
+            "bucket": settings.S3_BUCKET,
+            "endpoint": settings.S3_ENDPOINT,
+            "test_object_key": object_key,
+            "test_url": presigned_result["signed_url"],
+            "expires_at": presigned_result["expires_at"],
+            "message": "S3 storage is operational"
+        }
+    except Exception as e:
+        logger.error(f"Storage health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "message": "S3 storage check failed"
+        }
 
 
 @app.get("/", tags=["Root"])

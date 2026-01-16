@@ -18,7 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.database import get_db
 from app.models.image import ProcessedImage
 from app.services.image_optimizer import optimize_image as local_optimize_image
-from app.services.minio_storage import upload_to_minio
+from app.services.s3_storage import upload_to_s3, generate_presigned_url, get_object
 
 # Import GPT image optimizer lazily
 try:
@@ -143,12 +143,39 @@ def _crop_grid_variants(
 
     return variants
 
+
+@router.get("/signed-url/{object_key:path}")
+async def get_signed_url(object_key: str, expires_in: Optional[int] = Query(900, description="Expiry time in seconds")):
+    """
+    Generate a presigned URL for temporary access to a private S3 object.
+    
+    Args:
+        object_key: The S3 object key (e.g., "optimized_grid_abc123.png")
+        expires_in: Expiry time in seconds (default: 900 = 15 minutes)
+    
+    Returns:
+        JSON with signed_url and expires_at timestamp
+    """
+    try:
+        result = await generate_presigned_url(object_key, expires_in=expires_in)
+        return {
+            "signed_url": result["signed_url"],
+            "expires_at": result["expires_at"],
+            "object_key": object_key
+        }
+    except Exception as e:
+        logger.error(f"Failed to generate presigned URL for {object_key}: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to generate signed URL: {str(e)}"
+        )
+
+
 # Place the /proxy/ endpoint after router is defined
 @router.get("/proxy/")
 async def proxy_image_query(url: str = Query(...), download: bool = Query(False)):
-    """Proxy endpoint to serve images from MinIO using a ?url=... query param (for frontend compatibility)."""
+    """Proxy endpoint to serve images from S3 using a ?url=... query param (for frontend compatibility)."""
     try:
-        from minio import Minio
         from fastapi.responses import StreamingResponse
         import io
 
@@ -156,24 +183,18 @@ async def proxy_image_query(url: str = Query(...), download: bool = Query(False)
 
         # Parse the URL to extract bucket and object name
         parsed = urlparse(unquote(url))
-        # Example: http://localhost:9000/meesho-images/optimized_test_3.jpg
-        # path: /meesho-images/optimized_test_3.jpg
+        # Example: https://s3.us-east-005.backblazeb2.com/meeship-images/optimized_test_3.jpg
+        # path: /meeship-images/optimized_test_3.jpg
         path = parsed.path.lstrip('/')
         parts = path.split('/', 1)
         if len(parts) != 2:
-            raise HTTPException(status_code=400, detail="Invalid MinIO URL format")
+            raise HTTPException(status_code=400, detail="Invalid S3 URL format")
         bucket_name = parts[0]
         object_name = parts[1]
 
-        minio_client = Minio(
-            endpoint=settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            secure=settings.MINIO_USE_SSL,
-        )
-        response = minio_client.get_object(bucket_name, object_name)
-        data = response.read()
-        response.close()
+        # Get object from S3
+        data = await get_object(object_name)
+        
         headers = {"Access-Control-Allow-Origin": "*"}
         if download:
             headers["Content-Disposition"] = f"attachment; filename={object_name}"
@@ -265,8 +286,9 @@ async def batch_ab_optimize_endpoint(
 
 # Dependency for MinIO storage upload (returns True if enabled)
 def get_minio_enabled():
+    """Check if S3 storage is enabled (backwards compatible function name)"""
     settings = get_settings()
-    return settings.MINIO_ENABLED
+    return settings.S3_ENABLED
 
 @router.post("/optimize")
 async def optimize_image_endpoint(
@@ -445,7 +467,7 @@ async def optimize_image_endpoint(
                     "metrics": metrics,
                 },
             )
-        # Upload to MinIO if enabled
+        # Upload to S3 if enabled
         blob_url = None
         original_blob_url = None
         variant_blob_urls: Optional[List[str]] = None
@@ -454,11 +476,14 @@ async def optimize_image_endpoint(
                 # Use a unique run id for all outputs in this request
                 run_id = uuid.uuid4().hex
                 # Upload optimized grid image with randomization
-                blob_url = await upload_to_minio(
+                object_key = await upload_to_s3(
                     optimized_bytes,
                     filename=f"optimized_grid_{run_id}.png",
                     content_type="image/png",
                 )
+                # Generate presigned URL for the uploaded object
+                presigned_result = await generate_presigned_url(object_key)
+                blob_url = presigned_result["signed_url"]
                 processed.azure_blob_url = blob_url
 
                 # Crop and upload 6 variants from the generated grid, each with unique name
@@ -467,25 +492,28 @@ async def optimize_image_endpoint(
                     variant_blob_urls = []
                     for i, vb in enumerate(variant_bytes_list):
                         variant_id = uuid.uuid4().hex[:8]
-                        url = await upload_to_minio(
+                        variant_key = await upload_to_s3(
                             vb,
                             filename=f"optimized_variant_{i+1}_{variant_id}_{run_id}.jpg",
                             content_type="image/jpeg",
                         )
-                        variant_blob_urls.append(url)
+                        variant_presigned = await generate_presigned_url(variant_key)
+                        variant_blob_urls.append(variant_presigned["signed_url"])
                 except Exception as e:
                     logger.warning("Variant crop/upload failed: %s", e)
 
                 # Upload original image for comparison with randomization
                 orig_id = uuid.uuid4().hex[:8]
-                original_blob_url = await upload_to_minio(
+                original_key = await upload_to_s3(
                     image_bytes,
                     filename=f"original_{orig_id}_{run_id}.{file.filename.split('.')[-1] if '.' in file.filename else 'jpg'}",
                     content_type=file.content_type or "image/jpeg",
                 )
+                original_presigned = await generate_presigned_url(original_key)
+                original_blob_url = original_presigned["signed_url"]
             except Exception as e:
                 processed.status = "error"
-                processed.error_message = f"MinIO upload failed: {e}"
+                processed.error_message = f"S3 upload failed: {e}"
         # Persist to DB
         db.add(processed)
         await db.commit()
@@ -641,24 +669,15 @@ async def get_image_history(
 
 @router.get("/proxy/{path:path}")
 async def proxy_image(path: str, download: bool = Query(False)):
-    """Proxy endpoint to serve images from MinIO with CORS headers. If download=1, set Content-Disposition for download."""
+    """Proxy endpoint to serve images from S3 with CORS headers. If download=1, set Content-Disposition for download."""
     try:
-        from minio import Minio
         from fastapi.responses import StreamingResponse
         import io
         
         settings = get_settings()
         
-        # Initialize MinIO client with credentials
-        minio_client = Minio(
-            endpoint=settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            secure=settings.MINIO_USE_SSL,
-        )
-        
         # Extract bucket and object name from path
-        # path format: meesho-images/optimized_Screenshot_2026-01-09_150004.png
+        # path format: meeship-images/optimized_Screenshot_2026-01-09_150004.png
         parts = path.split('/', 1)
         if len(parts) != 2:
             raise HTTPException(status_code=400, detail="Invalid path format")
@@ -666,12 +685,8 @@ async def proxy_image(path: str, download: bool = Query(False)):
         bucket_name = parts[0]
         object_name = parts[1]
         
-        # Get the object from MinIO
-        response = minio_client.get_object(bucket_name, object_name)
-        
-        # Read the entire object into memory (for small images this is fine)
-        data = response.read()
-        response.close()
+        # Get the object from S3
+        data = await get_object(object_name)
         
         headers = {
             "Access-Control-Allow-Origin": "*",
@@ -683,7 +698,7 @@ async def proxy_image(path: str, download: bool = Query(False)):
             headers["Content-Disposition"] = f"attachment; filename={filename}"
         return StreamingResponse(
             iter([data]),
-            media_type=response.headers.get("content-type", "image/jpeg"),
+            media_type="image/jpeg",
             headers=headers
         )
     except HTTPException:
