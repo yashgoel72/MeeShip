@@ -178,8 +178,7 @@ async def kinde_callback(
         trial_subscription = Subscription(
             user_id=user.id,
             tier="trial",
-            trial_uploads_remaining=2,  # 2 free trial images
-            is_active=True
+            trial_uploads_remaining=2  # 2 free trial images
         )
         db.add(trial_subscription)
         await db.commit()

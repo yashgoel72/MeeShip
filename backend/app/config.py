@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
 
+    # Frontend URL for CORS
+    FRONTEND_URL: str = "http://localhost:3000"
+    
     # JWT Settings
     SECRET_KEY: str = "change-me-in-production"
     JWT_SECRET_KEY: str = "jwt-secret-key-change-in-production"
@@ -28,14 +31,13 @@ class Settings(BaseSettings):
     AZURE_STORAGE_CONTAINER: Optional[str] = None
     AZURE_STORAGE_PUBLIC_BASE_URL: Optional[str] = None
 
-    # MinIO / S3 Storage (optional)
-    MINIO_ENABLED: bool = True
-    MINIO_ENDPOINT: str = "localhost:9000"
-    MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin123"
-    MINIO_BUCKET: str = "meesho-images"
-    MINIO_USE_SSL: bool = False
-    MINIO_PUBLIC_URL: str = "http://localhost:9000"
+    # S3 Storage (Backblaze B2 or compatible)
+    S3_ENABLED: bool = True
+    S3_ENDPOINT: str = "https://s3.us-east-005.backblazeb2.com"
+    S3_ACCESS_KEY: str = "your_keyID"
+    S3_SECRET_KEY: str = "your_app_key"
+    S3_BUCKET: str = "meeship-images"
+    S3_PRESIGNED_URL_EXPIRY: int = 900  # 15 minutes in seconds
 
     # Azure Foundry (FLUX) integration
     AZURE_FOUNDRY_ENDPOINT: Optional[str] = None

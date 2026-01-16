@@ -11,6 +11,8 @@ class UserResponse(BaseModel):
     full_name: Optional[str] = None
     is_active: bool
     email_verified: bool = False
+    credits: int = 0  # Total credits (paid + trial)
+    credits_expires_at: Optional[datetime] = Field(default=None, alias="creditsExpiresAt")
     subscription_tier: Optional[str] = Field(default=None, alias="subscriptionTier")
     is_upgraded: bool = Field(default=False, alias="isUpgraded")
     created_at: datetime

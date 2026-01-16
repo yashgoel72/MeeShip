@@ -50,9 +50,14 @@ async def get_me(
         .limit(1)
     )
     subscription = res.scalars().first()
+    trial_uploads_remaining = 0
     if subscription is not None:
         subscription_tier = subscription.tier
         is_upgraded = subscription.tier in {"pro", "premium"}
+        trial_uploads_remaining = subscription.trial_uploads_remaining or 0
+
+    # Total credits = paid credits + trial uploads
+    total_credits = current_user.credits + trial_uploads_remaining
 
     return UserResponse(
         id=current_user.id,
@@ -60,6 +65,8 @@ async def get_me(
         full_name=current_user.full_name,
         is_active=current_user.is_active,
         email_verified=current_user.email_verified,
+        credits=total_credits,
+        credits_expires_at=current_user.credits_expires_at,
         created_at=current_user.created_at,
         subscription_tier=subscription_tier,
         is_upgraded=is_upgraded,
