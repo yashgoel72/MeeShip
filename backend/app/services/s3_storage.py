@@ -1,5 +1,5 @@
-"""Azure Blob Storage service using native SDK with Account Key for SAS tokens"""
-from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions, ContentSettings
+"""Azure Blob Storage service using native SDK with Container SAS token"""
+from azure.storage.blob import BlobServiceClient, ContainerClient, generate_blob_sas, BlobSasPermissions, ContentSettings
 from azure.core.exceptions import ResourceNotFoundError, AzureError
 import uuid
 import logging
@@ -8,6 +8,9 @@ from datetime import datetime, timedelta, timezone
 from ..config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Container name - hardcoded for this application
+CONTAINER_NAME = "meeship-images"
 
 
 def _extract_region_from_endpoint(endpoint_url: str) -> str:
@@ -18,10 +21,14 @@ def _extract_region_from_endpoint(endpoint_url: str) -> str:
     return "not-applicable"
 
 
-def _get_blob_service_client():
+def _get_container_client():
     """
-    Create and return configured BlobServiceClient for Azure Blob Storage
-    Uses account key authentication for SAS token generation
+    Create and return configured ContainerClient for Azure Blob Storage
+    Uses container SAS token authentication directly
+    
+    Returns:
+        tuple: (container_client, account_name, account_key, sas_token)
+               account_key is None when using SAS token mode
     """
     settings = get_settings()
     
@@ -29,17 +36,28 @@ def _get_blob_service_client():
         raise Exception("Storage is not enabled")
     
     try:
-        # Construct connection string from account name and key
-        # S3_ACCESS_KEY = account name, S3_SECRET_KEY = account key
+        # S3_ACCESS_KEY = account name, S3_SECRET_KEY = SAS token (starting with sp=...)
         account_name = settings.S3_ACCESS_KEY
-        account_key = settings.S3_SECRET_KEY
+        sas_token = settings.S3_SECRET_KEY
         
-        # Create BlobServiceClient with account key
-        client = BlobServiceClient(
-            account_url=settings.S3_ENDPOINT,
-            credential=account_key
-        )
-        return client, account_name, account_key
+        # Check if it's a SAS token (starts with sp= or sv=) vs account key
+        is_sas_token = sas_token.startswith('sp=') or sas_token.startswith('sv=') or '&sig=' in sas_token
+        
+        if is_sas_token:
+            # Use ContainerClient with SAS URL directly - this is the correct way to use container SAS tokens
+            container_sas_url = f"{settings.S3_ENDPOINT}/{CONTAINER_NAME}?{sas_token}"
+            container_client = ContainerClient.from_container_url(container_sas_url)
+            logger.info(f"Using container SAS token authentication")
+            # Return None for account_key to indicate SAS mode
+            return container_client, account_name, None, sas_token
+        else:
+            # Use account key via BlobServiceClient
+            blob_service_client = BlobServiceClient(
+                account_url=settings.S3_ENDPOINT,
+                credential=sas_token
+            )
+            container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+            return container_client, account_name, sas_token, None
     except Exception as e:
         logger.error(f"Failed to initialize Azure Blob client: {e}")
         raise Exception(f"Azure Blob client initialization failed: {e}")
@@ -65,7 +83,7 @@ async def upload_to_s3(
         Exception: If upload fails
     """
     settings = get_settings()
-    blob_service_client, account_name, account_key = _get_blob_service_client()
+    container_client, account_name, account_key, sas_token = _get_container_client()
     
     # Generate and sanitize filename
     if filename:
@@ -75,12 +93,8 @@ async def upload_to_s3(
         object_name = f"{uuid.uuid4().hex}.jpg"
     
     try:
-        # Get container client (hardcoded to meeship-images)
-        container_name = "meeship-images"
-        blob_client = blob_service_client.get_blob_client(
-            container=container_name,
-            blob=object_name
-        )
+        # Get blob client from container client
+        blob_client = container_client.get_blob_client(blob=object_name)
         
         # Upload file
         logger.info(f"Uploading to Azure Blob: {object_name} ({len(data)} bytes)")
@@ -123,7 +137,7 @@ async def generate_presigned_url(
         Exception: If URL generation fails
     """
     settings = get_settings()
-    blob_service_client, account_name, account_key = _get_blob_service_client()
+    container_client, account_name, account_key, sas_token = _get_container_client()
     
     if expires_in is None:
         expires_in = settings.S3_PRESIGNED_URL_EXPIRY
@@ -131,23 +145,30 @@ async def generate_presigned_url(
     try:
         logger.info(f"Generating SAS URL for: {object_key} (expires in {expires_in}s)")
         
-        # Get container and blob info
-        container_name = "meeship-images"
-        
         # Calculate expiration time
         start_time = datetime.now(timezone.utc)
         expiry_time = start_time + timedelta(seconds=expires_in)
         
-        # Get blob client
-        blob_client = blob_service_client.get_blob_client(
-            container=container_name,
-            blob=object_key
-        )
+        # If using SAS token (no account key), use the container SAS token directly
+        if account_key is None and sas_token:
+            # Use the container-level SAS token for read access
+            base_url = f"{settings.S3_ENDPOINT}/{CONTAINER_NAME}/{object_key}"
+            signed_url = f"{base_url}?{sas_token}"
+            
+            logger.info(f"Generated URL using container SAS for {object_key}")
+            
+            return {
+                "signed_url": signed_url,
+                "expires_at": expiry_time.isoformat()
+            }
         
-        # Generate SAS token using account key (simpler than user delegation key)
-        sas_token = generate_blob_sas(
+        # Get blob client from container
+        blob_client = container_client.get_blob_client(blob=object_key)
+        
+        # Generate SAS token using account key
+        generated_sas = generate_blob_sas(
             account_name=account_name,
-            container_name=container_name,
+            container_name=CONTAINER_NAME,
             blob_name=object_key,
             account_key=account_key,
             permission=BlobSasPermissions(read=True),
@@ -157,7 +178,7 @@ async def generate_presigned_url(
         
         # Construct full URL with SAS token (remove any existing query params from blob_client.url)
         base_url = blob_client.url.split('?')[0]  # Remove any existing SAS token
-        signed_url = f"{base_url}?{sas_token}"
+        signed_url = f"{base_url}?{generated_sas}"
         
         logger.info(f"Generated SAS URL for {object_key}, expires at {expiry_time.isoformat()}")
         
@@ -188,17 +209,13 @@ async def get_object(object_key: str) -> bytes:
         Exception: If download fails
     """
     settings = get_settings()
-    blob_service_client, account_name, account_key = _get_blob_service_client()
+    container_client, account_name, account_key, sas_token = _get_container_client()
     
     try:
         logger.info(f"Downloading from Azure Blob: {object_key}")
         
-        # Get container client
-        container_name = "meeship-images"
-        blob_client = blob_service_client.get_blob_client(
-            container=container_name,
-            blob=object_key
-        )
+        # Get blob client from container
+        blob_client = container_client.get_blob_client(blob=object_key)
         
         # Download blob
         download_stream = blob_client.download_blob()

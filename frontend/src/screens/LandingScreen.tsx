@@ -206,7 +206,9 @@ export default function LandingScreen() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!isAuthenticated) {
+                  // Skip auth check in development
+                  const isDev = import.meta.env.DEV
+                  if (!isDev && !isAuthenticated) {
                     setSignInOpen(true)
                     return
                   }

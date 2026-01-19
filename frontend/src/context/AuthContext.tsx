@@ -15,12 +15,31 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem("jwt") || null);
-  const [user, setUser] = useState<User | null>(null);
+// DEV MODE: Skip Kinde auth and provide mock user with unlimited credits
+const DEV_SKIP_AUTH = import.meta.env.DEV;
+const DEV_USER: User = {
+  id: 'dev-user-123',
+  email: 'dev@test.com',
+  name: 'Dev User',
+  trialCount: 999,
+  isUpgraded: true,
+  credits: 9999,
+  creditsExpiresAt: null,
+};
 
-  // Check for token in URL params (from Kinde callback)
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [token, setToken] = useState<string | null>(
+    DEV_SKIP_AUTH ? 'dev-token' : (localStorage.getItem("jwt") || null)
+  );
+  const [user, setUser] = useState<User | null>(DEV_SKIP_AUTH ? DEV_USER : null);
+
   useEffect(() => {
+    // Skip auth flow in dev mode
+    if (DEV_SKIP_AUTH) {
+      console.log('[DEV] Auth bypassed - using mock user with unlimited credits');
+      return;
+    }
+    
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get('token');
     
@@ -35,6 +54,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshCredits = useCallback(async () => {
+    // Skip in dev mode
+    if (DEV_SKIP_AUTH) return;
+    
     if (!token) return;
     try {
       const bal = await getCreditBalance();
@@ -45,6 +67,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [token]);
 
   useEffect(() => {
+    // Skip auth flow in dev mode
+    if (DEV_SKIP_AUTH) return;
+    
     let cancelled = false;
 
     const run = async () => {
@@ -98,12 +123,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [token]);
 
   const loginWithKinde = () => {
+    // In dev mode, just set dev user
+    if (DEV_SKIP_AUTH) {
+      console.log('[DEV] Login - using mock user');
+      setUser(DEV_USER);
+      return;
+    }
+    
     // Redirect to backend Kinde login endpoint
     const backendLoginUrl = import.meta.env.VITE_BACKEND_LOGIN_URL || 'http://localhost:8000/api/auth/kinde/login';
     window.location.href = backendLoginUrl;
   };
 
   const logout = () => {
+    // In dev mode, just reset to dev user
+    if (DEV_SKIP_AUTH) {
+      console.log('[DEV] Logout - resetting to mock user');
+      setUser(DEV_USER);
+      return;
+    }
+    
     setToken(null);
     setUser(null);
     localStorage.removeItem("jwt");
