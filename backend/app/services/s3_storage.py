@@ -1,7 +1,6 @@
-"""S3-compatible object storage service for Backblaze B2"""
-import boto3
-from botocore.config import Config
-from botocore.exceptions import ClientError
+"""Azure Blob Storage service using native SDK with Account Key for SAS tokens"""
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions, ContentSettings
+from azure.core.exceptions import ResourceNotFoundError, AzureError
 import uuid
 import logging
 import re
@@ -13,40 +12,37 @@ logger = logging.getLogger(__name__)
 
 def _extract_region_from_endpoint(endpoint_url: str) -> str:
     """
-    Extract region from S3 endpoint URL.
-    Example: https://s3.us-east-005.backblazeb2.com -> us-east-005
+    Kept for backward compatibility (not used in Azure Blob Storage)
+    Azure Blob URLs don't contain region information
     """
-    match = re.search(r's3\.([a-z]+-[a-z]+-\d+)', endpoint_url)
-    if match:
-        return match.group(1)
-    # Default fallback
-    return "us-west-000"
+    return "not-applicable"
 
 
-def _get_s3_client():
+def _get_blob_service_client():
     """
-    Create and return configured boto3 S3 client for Backblaze B2
+    Create and return configured BlobServiceClient for Azure Blob Storage
+    Uses account key authentication for SAS token generation
     """
     settings = get_settings()
     
     if not settings.S3_ENABLED:
-        raise Exception("S3 storage is not enabled")
-    
-    region = _extract_region_from_endpoint(settings.S3_ENDPOINT)
+        raise Exception("Storage is not enabled")
     
     try:
-        client = boto3.client(
-            's3',
-            endpoint_url=settings.S3_ENDPOINT,
-            aws_access_key_id=settings.S3_ACCESS_KEY,
-            aws_secret_access_key=settings.S3_SECRET_KEY,
-            config=Config(signature_version='s3v4'),
-            region_name=region
+        # Construct connection string from account name and key
+        # S3_ACCESS_KEY = account name, S3_SECRET_KEY = account key
+        account_name = settings.S3_ACCESS_KEY
+        account_key = settings.S3_SECRET_KEY
+        
+        # Create BlobServiceClient with account key
+        client = BlobServiceClient(
+            account_url=settings.S3_ENDPOINT,
+            credential=account_key
         )
-        return client
+        return client, account_name, account_key
     except Exception as e:
-        logger.error(f"Failed to initialize S3 client: {e}")
-        raise Exception(f"S3 client initialization failed: {e}")
+        logger.error(f"Failed to initialize Azure Blob client: {e}")
+        raise Exception(f"Azure Blob client initialization failed: {e}")
 
 
 async def upload_to_s3(
@@ -55,7 +51,7 @@ async def upload_to_s3(
     content_type: str = "image/jpeg"
 ) -> str:
     """
-    Upload bytes to S3 and return the object key
+    Upload bytes to Azure Blob Storage and return the blob name
     
     Args:
         data: Bytes to upload
@@ -63,13 +59,13 @@ async def upload_to_s3(
         content_type: MIME type of the file
     
     Returns:
-        Object key of the uploaded file (e.g., "user123/optimized.jpg")
+        Blob name of the uploaded file (e.g., "user123/optimized.jpg")
     
     Raises:
         Exception: If upload fails
     """
     settings = get_settings()
-    s3_client = _get_s3_client()
+    blob_service_client, account_name, account_key = _get_blob_service_client()
     
     # Generate and sanitize filename
     if filename:
@@ -79,24 +75,30 @@ async def upload_to_s3(
         object_name = f"{uuid.uuid4().hex}.jpg"
     
     try:
-        # Upload file
-        logger.info(f"Uploading to S3: {object_name} ({len(data)} bytes)")
-        s3_client.put_object(
-            Bucket=settings.S3_BUCKET,
-            Key=object_name,
-            Body=data,
-            ContentType=content_type,
+        # Get container client (hardcoded to meeship-images)
+        container_name = "meeship-images"
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name,
+            blob=object_name
         )
         
-        logger.info(f"Successfully uploaded to S3: {object_name}")
+        # Upload file
+        logger.info(f"Uploading to Azure Blob: {object_name} ({len(data)} bytes)")
+        blob_client.upload_blob(
+            data,
+            overwrite=True,
+            content_settings=ContentSettings(content_type=content_type)
+        )
+        
+        logger.info(f"Successfully uploaded to Azure Blob: {object_name}")
         return object_name
         
-    except ClientError as e:
-        logger.error(f"S3 ClientError: {e}")
-        raise Exception(f"S3 upload failed: {e}")
+    except AzureError as e:
+        logger.error(f"Azure Blob upload error: {e}")
+        raise Exception(f"Azure Blob upload failed: {e}")
     except Exception as e:
-        logger.error(f"S3 upload error: {e}")
-        raise Exception(f"S3 upload error: {e}")
+        logger.error(f"Blob upload error: {e}")
+        raise Exception(f"Blob upload error: {e}")
 
 
 async def generate_presigned_url(
@@ -104,64 +106,80 @@ async def generate_presigned_url(
     expires_in: int = None
 ) -> dict:
     """
-    Generate a presigned URL for temporary access to a private S3 object
+    Generate a SAS URL for temporary access to a private Azure blob
     
     Args:
-        object_key: The S3 object key (e.g., "user123/optimized.jpg")
+        object_key: The blob name (e.g., "user123/optimized.jpg")
         expires_in: Expiry time in seconds (defaults to S3_PRESIGNED_URL_EXPIRY from settings)
     
     Returns:
         Dictionary with signed_url and expires_at timestamp
         {
-            "signed_url": "https://...",
-            "expires_at": "2026-01-16T12:30:00Z"
+            "signed_url": "https://...?sv=...&sig=...",
+            "expires_at": "2026-01-17T12:30:00Z"
         }
     
     Raises:
         Exception: If URL generation fails
     """
     settings = get_settings()
-    s3_client = _get_s3_client()
+    blob_service_client, account_name, account_key = _get_blob_service_client()
     
     if expires_in is None:
         expires_in = settings.S3_PRESIGNED_URL_EXPIRY
     
     try:
-        logger.info(f"Generating presigned URL for: {object_key} (expires in {expires_in}s)")
+        logger.info(f"Generating SAS URL for: {object_key} (expires in {expires_in}s)")
         
-        signed_url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': settings.S3_BUCKET,
-                'Key': object_key
-            },
-            ExpiresIn=expires_in
+        # Get container and blob info
+        container_name = "meeship-images"
+        
+        # Calculate expiration time
+        start_time = datetime.now(timezone.utc)
+        expiry_time = start_time + timedelta(seconds=expires_in)
+        
+        # Get blob client
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name,
+            blob=object_key
         )
         
-        # Calculate expiration timestamp
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        # Generate SAS token using account key (simpler than user delegation key)
+        sas_token = generate_blob_sas(
+            account_name=account_name,
+            container_name=container_name,
+            blob_name=object_key,
+            account_key=account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=expiry_time,
+            start=start_time
+        )
         
-        logger.info(f"Generated presigned URL for {object_key}, expires at {expires_at.isoformat()}")
+        # Construct full URL with SAS token (remove any existing query params from blob_client.url)
+        base_url = blob_client.url.split('?')[0]  # Remove any existing SAS token
+        signed_url = f"{base_url}?{sas_token}"
+        
+        logger.info(f"Generated SAS URL for {object_key}, expires at {expiry_time.isoformat()}")
         
         return {
             "signed_url": signed_url,
-            "expires_at": expires_at.isoformat()
+            "expires_at": expiry_time.isoformat()
         }
         
-    except ClientError as e:
-        logger.error(f"S3 ClientError generating presigned URL: {e}")
-        raise Exception(f"Failed to generate presigned URL: {e}")
+    except AzureError as e:
+        logger.error(f"Azure error generating SAS URL: {e}")
+        raise Exception(f"Failed to generate SAS URL: {e}")
     except Exception as e:
-        logger.error(f"Error generating presigned URL: {e}")
-        raise Exception(f"Error generating presigned URL: {e}")
+        logger.error(f"Error generating SAS URL: {e}")
+        raise Exception(f"Error generating SAS URL: {e}")
 
 
 async def get_object(object_key: str) -> bytes:
     """
-    Download an object from S3
+    Download a blob from Azure Blob Storage
     
     Args:
-        object_key: The S3 object key to download
+        object_key: The blob name to download
     
     Returns:
         File contents as bytes
@@ -170,26 +188,34 @@ async def get_object(object_key: str) -> bytes:
         Exception: If download fails
     """
     settings = get_settings()
-    s3_client = _get_s3_client()
+    blob_service_client, account_name, account_key = _get_blob_service_client()
     
     try:
-        logger.info(f"Downloading from S3: {object_key}")
+        logger.info(f"Downloading from Azure Blob: {object_key}")
         
-        response = s3_client.get_object(
-            Bucket=settings.S3_BUCKET,
-            Key=object_key
+        # Get container client
+        container_name = "meeship-images"
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name,
+            blob=object_key
         )
         
-        data = response['Body'].read()
-        logger.info(f"Successfully downloaded {len(data)} bytes from S3")
+        # Download blob
+        download_stream = blob_client.download_blob()
+        data = download_stream.readall()
+        
+        logger.info(f"Successfully downloaded {len(data)} bytes from Azure Blob")
         return data
         
-    except ClientError as e:
-        logger.error(f"S3 ClientError downloading object: {e}")
-        raise Exception(f"S3 download failed: {e}")
+    except ResourceNotFoundError as e:
+        logger.error(f"Azure Blob not found: {e}")
+        raise Exception(f"Blob download failed - not found: {e}")
+    except AzureError as e:
+        logger.error(f"Azure error downloading blob: {e}")
+        raise Exception(f"Blob download failed: {e}")
     except Exception as e:
-        logger.error(f"S3 download error: {e}")
-        raise Exception(f"S3 download error: {e}")
+        logger.error(f"Blob download error: {e}")
+        raise Exception(f"Blob download error: {e}")
 
 
 # Backwards compatibility alias
