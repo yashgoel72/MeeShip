@@ -31,13 +31,14 @@ class Settings(BaseSettings):
     AZURE_STORAGE_CONTAINER: Optional[str] = None
     AZURE_STORAGE_PUBLIC_BASE_URL: Optional[str] = None
 
-    # S3 Storage (Backblaze B2 or compatible)
+    # Azure Blob Storage (using Account Key for SAS tokens)
+    # Note: S3_* variable names kept for backward compatibility
     S3_ENABLED: bool = True
-    S3_ENDPOINT: str = "https://s3.us-east-005.backblazeb2.com"
-    S3_ACCESS_KEY: str = "your_keyID"
-    S3_SECRET_KEY: str = "your_app_key"
-    S3_BUCKET: str = "meeship-images"
-    S3_PRESIGNED_URL_EXPIRY: int = 900  # 15 minutes in seconds
+    S3_ENDPOINT: str = "https://meeshipstorage2026.blob.core.windows.net"
+    S3_ACCESS_KEY: str = "meeshipstorage2026"  # Azure Storage Account Name
+    S3_SECRET_KEY: str = "your-azure-storage-account-key"  # Azure Storage Account Key
+    S3_BUCKET: str = "meeship-images"  # Maps to Azure container name
+    S3_PRESIGNED_URL_EXPIRY: int = 900  # 15 minutes in seconds (for SAS token)
 
     # Azure Foundry (FLUX) integration
     AZURE_FOUNDRY_ENDPOINT: Optional[str] = None
