@@ -2,11 +2,21 @@ import { create } from 'zustand'
 
 type Screen = 'landing' | 'processing' | 'result'
 
+export type VariantMeta = {
+  url: string
+  tile_index: number
+  variant_index: number
+  variant_type: string
+  tile_name: string
+  variant_label: string
+}
+
 export type OptimizeResult = {
   id: string
   blob_url: string | null
   original_blob_url: string | null
   variant_blob_urls?: string[] | null
+  variants?: VariantMeta[] | null  // Detailed variant info for streaming
   original_filename?: string
   status?: 'success' | 'error'
   error_message?: string | null
@@ -20,6 +30,15 @@ export type OptimizeResult = {
     savings_percentage?: number
     shipping_cost_inr?: number
   }
+}
+
+export type StreamingProgress = {
+  stage: 'idle' | 'generating' | 'processing' | 'uploading' | 'complete' | 'error'
+  progress: number  // 0-100
+  message: string
+  completed: number  // Variants completed
+  total: number      // Total expected variants (30)
+  errors: string[]   // Error messages collected during streaming
 }
 
 type ProcessingStep = {
@@ -44,6 +63,9 @@ type AppState = {
   downloadState: 'idle' | 'downloading' | 'saved'
   error: string | null
 
+  // Streaming state
+  streamingProgress: StreamingProgress
+
   setScreen: (screen: Screen) => void
   setOriginalFile: (file: File | null, previewUrl: string | null) => void
   setCompressedFile: (file: File | null) => void
@@ -54,6 +76,12 @@ type AppState = {
   setOptimizedPreviewUrl: (url: string | null) => void
   setError: (error: string | null) => void
   setDownloadState: (state: AppState['downloadState']) => void
+
+  // Streaming actions
+  setStreamingProgress: (progress: Partial<StreamingProgress>) => void
+  addVariant: (variant: VariantMeta) => void
+  addStreamingError: (error: string) => void
+  resetStreaming: () => void
 }
 
 const initialSteps: ProcessingStep[] = [
@@ -62,6 +90,15 @@ const initialSteps: ProcessingStep[] = [
   { key: 'background', label: 'Making it Meesho-ready...', status: 'pending' },
   { key: 'compress', label: 'Finalizing for lowest slab...', status: 'pending' },
 ]
+
+const initialStreamingProgress: StreamingProgress = {
+  stage: 'idle',
+  progress: 0,
+  message: '',
+  completed: 0,
+  total: 30,
+  errors: [],
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   screen: 'landing',
@@ -79,6 +116,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   downloadState: 'idle',
   error: null,
 
+  streamingProgress: initialStreamingProgress,
+
   setScreen: (screen) => set({ screen }),
 
   setOriginalFile: (file, previewUrl) => {
@@ -92,6 +131,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       optimizedPreviewUrl: null,
       error: null,
       downloadState: 'idle',
+      streamingProgress: initialStreamingProgress,
     })
   },
 
@@ -111,6 +151,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       optimizedPreviewUrl: null,
       downloadState: 'idle',
       error: null,
+      streamingProgress: initialStreamingProgress,
     })
   },
 
@@ -121,6 +162,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       steps: initialSteps.map((s, idx) => (idx === 0 ? { ...s, status: 'active' } : s)),
       error: null,
       downloadState: 'idle',
+      streamingProgress: {
+        ...initialStreamingProgress,
+        stage: 'generating',
+        message: 'Starting optimization...',
+      },
     }),
 
   markStep: (key, status) =>
@@ -135,4 +181,45 @@ export const useAppStore = create<AppState>((set, get) => ({
   setError: (error) => set({ error, isSubmitting: false }),
 
   setDownloadState: (state) => set({ downloadState: state }),
+
+  // === Streaming actions ===
+
+  setStreamingProgress: (progress) =>
+    set({
+      streamingProgress: { ...get().streamingProgress, ...progress },
+    }),
+
+  addVariant: (variant) => {
+    const current = get().result
+    const currentVariants = current?.variants || []
+    const currentUrls = current?.variant_blob_urls || []
+    
+    set({
+      result: {
+        ...current,
+        id: current?.id || '',
+        blob_url: current?.blob_url || null,
+        original_blob_url: current?.original_blob_url || null,
+        variants: [...currentVariants, variant],
+        variant_blob_urls: [...currentUrls, variant.url],
+      },
+      streamingProgress: {
+        ...get().streamingProgress,
+        completed: currentVariants.length + 1,
+      },
+    })
+  },
+
+  addStreamingError: (error) =>
+    set({
+      streamingProgress: {
+        ...get().streamingProgress,
+        errors: [...get().streamingProgress.errors, error],
+      },
+    }),
+
+  resetStreaming: () =>
+    set({
+      streamingProgress: initialStreamingProgress,
+    }),
 }))

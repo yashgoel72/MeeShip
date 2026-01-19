@@ -2,14 +2,17 @@ from urllib.parse import urlparse, unquote
 
 # ...existing code...
 
+import asyncio
 import io
 import json
 import logging
+import time
 import uuid
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, AsyncGenerator
 
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, status, Query
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, status, Query, Request
 from fastapi.responses import JSONResponse
+from sse_starlette.sse import EventSourceResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -19,6 +22,13 @@ from app.database import get_db
 from app.models.image import ProcessedImage
 from app.services.image_optimizer import optimize_image as local_optimize_image
 from app.services.s3_storage import upload_to_s3, generate_presigned_url, get_object
+from app.services.shipping_variant_generator import (
+    generate_all_shipping_variants,
+    encode_variant_jpeg,
+    VariantInfo,
+    TILE_NAMES,
+    VARIANT_LABELS,
+)
 
 # Import GPT image optimizer lazily
 try:
@@ -487,18 +497,29 @@ async def optimize_image_endpoint(
                 processed.azure_blob_url = blob_url
 
                 # Crop and upload 6 variants from the generated grid, each with unique name
+                # Use parallel upload for better performance
                 try:
+                    import asyncio
                     variant_bytes_list = _crop_grid_variants(optimized_bytes)
-                    variant_blob_urls = []
-                    for i, vb in enumerate(variant_bytes_list):
+                    
+                    async def upload_variant(idx: int, variant_bytes: bytes) -> str:
+                        """Upload a single variant and return its presigned URL."""
                         variant_id = uuid.uuid4().hex[:8]
                         variant_key = await upload_to_s3(
-                            vb,
-                            filename=f"optimized_variant_{i+1}_{variant_id}_{run_id}.jpg",
+                            variant_bytes,
+                            filename=f"optimized_variant_{idx+1}_{variant_id}_{run_id}.jpg",
                             content_type="image/jpeg",
                         )
                         variant_presigned = await generate_presigned_url(variant_key)
-                        variant_blob_urls.append(variant_presigned["signed_url"])
+                        return variant_presigned["signed_url"]
+                    
+                    # Upload all 6 variants in parallel
+                    upload_tasks = [
+                        upload_variant(i, vb) 
+                        for i, vb in enumerate(variant_bytes_list)
+                    ]
+                    variant_blob_urls = await asyncio.gather(*upload_tasks)
+                    variant_blob_urls = list(variant_blob_urls)  # Convert tuple to list
                 except Exception as e:
                     logger.warning("Variant crop/upload failed: %s", e)
 
@@ -537,6 +558,311 @@ async def optimize_image_endpoint(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image optimization failed: {e}")
+
+
+@router.post("/optimize-stream")
+async def optimize_image_stream(
+    request: Request,
+    file: UploadFile = File(...),
+    actual_weight_g: Optional[float] = Form(None),
+    dimensions_cm: Optional[str] = Form(None),
+    prompt_variant: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    minio_enabled: bool = Depends(get_minio_enabled),
+    current_user=Depends(get_current_user_optional),
+):
+    """Streaming optimization endpoint that yields variants via Server-Sent Events.
+    
+    Returns SSE events:
+    - status: {stage: "generating"|"processing"|"uploading", progress: 0-100, message: str}
+    - variant: {index: int, tile_index: int, variant_type: str, url: str, tile_name: str, variant_label: str}
+    - error: {message: str, recoverable: bool}
+    - complete: {total: int, successful: int, failed: int}
+    """
+    # Pre-validate and read image before starting SSE
+    image_bytes = await file.read()
+    original_filename = file.filename
+    content_type = file.content_type or "image/jpeg"
+    
+    # Parse dimensions
+    dims = None
+    if dimensions_cm:
+        try:
+            if dimensions_cm.strip().startswith("[") or dimensions_cm.strip().startswith("{"):
+                dims = tuple(json.loads(dimensions_cm))
+            else:
+                dims = tuple(float(x) for x in dimensions_cm.split(","))
+            if len(dims) != 3:
+                raise ValueError
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid dimensions_cm format.")
+
+    # Credits/Trial logic
+    is_trial_user = False
+    if current_user is not None:
+        from datetime import datetime, timezone
+        has_valid_credits = (
+            current_user.credits > 0 and
+            (current_user.credits_expires_at is None or 
+             current_user.credits_expires_at > datetime.now(timezone.utc))
+        )
+        if has_valid_credits:
+            current_user.credits -= 1
+            await db.commit()
+        else:
+            is_trial_user = True
+            allowed = await is_trial_upload_allowed(current_user.id, db)
+            if not allowed:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Trial upload limit reached. Please upgrade to continue."
+                )
+
+    async def event_generator() -> AsyncGenerator[dict, None]:
+        """Generate SSE events as variants are created and uploaded."""
+        run_id = uuid.uuid4().hex
+        start_time = time.time()
+        
+        successful_variants = 0
+        failed_variants = 0
+        total_variants = 30  # 6 tiles × 5 variants
+        variant_urls: List[str] = []
+        grid_url = None
+        original_url = None
+        metrics = {}
+        
+        try:
+            # === Stage 1: Generate grid with GPT ===
+            yield {
+                "event": "status",
+                "data": json.dumps({
+                    "stage": "generating",
+                    "progress": 0,
+                    "message": "Generating your product images with AI..."
+                })
+            }
+            
+            settings = get_settings()
+            optimized_bytes = None
+            
+            if (
+                getattr(settings, "AZURE_OPENAI_ENDPOINT", None)
+                and getattr(settings, "AZURE_OPENAI_API_KEY", None)
+                and GptImage15Optimizer is not None
+            ):
+                gpt = GptImage15Optimizer(
+                    endpoint=getattr(settings, "AZURE_OPENAI_ENDPOINT", None),
+                    api_key=getattr(settings, "AZURE_OPENAI_API_KEY", None),
+                    deployment=getattr(settings, "AZURE_OPENAI_DEPLOYMENT_NAME", None),
+                    api_version=getattr(settings, "OPENAI_API_VERSION", None),
+                )
+                
+                pipeline_config = {}
+                if prompt_variant:
+                    pipeline_config["prompt_variant"] = prompt_variant
+                
+                optimized_bytes, metrics = await gpt.optimize_image(
+                    image_bytes=image_bytes,
+                    original_filename=original_filename,
+                    pipeline_config=pipeline_config,
+                    actual_weight_g=actual_weight_g,
+                    dimensions_cm=dims,
+                )
+            elif getattr(settings, "AZURE_FOUNDRY_ENDPOINT", None) and FluxOptimizer is not None:
+                flux = FluxOptimizer(
+                    base_url=getattr(settings, "AZURE_FOUNDRY_ENDPOINT", None),
+                    api_key=getattr(settings, "AZURE_FOUNDRY_API_KEY", None),
+                    model_name=getattr(settings, "AZURE_FOUNDRY_MODEL_NAME", None),
+                )
+                optimized_bytes, metrics = await flux.optimize_image(
+                    image_bytes=image_bytes,
+                    original_filename=original_filename,
+                    actual_weight_g=actual_weight_g,
+                    dimensions_cm=dims,
+                )
+            else:
+                optimized_bytes, metrics = await local_optimize_image(
+                    image_bytes=image_bytes,
+                    original_filename=original_filename,
+                    actual_weight_g=actual_weight_g,
+                    dimensions_cm=dims,
+                )
+            
+            # Check for generation errors
+            if metrics.get("error"):
+                yield {
+                    "event": "error",
+                    "data": json.dumps({
+                        "message": f"Image generation failed: {metrics.get('error')}",
+                        "recoverable": False,
+                        "stage_metrics": metrics.get("stage_metrics", {})
+                    })
+                }
+                return
+            
+            yield {
+                "event": "status",
+                "data": json.dumps({
+                    "stage": "processing",
+                    "progress": 15,
+                    "message": "AI generation complete. Creating shipping variants..."
+                })
+            }
+            
+            # === Stage 2: Upload grid and original ===
+            if minio_enabled:
+                try:
+                    # Upload grid
+                    grid_key = await upload_to_s3(
+                        optimized_bytes,
+                        filename=f"optimized_grid_{run_id}.png",
+                        content_type="image/png",
+                    )
+                    grid_presigned = await generate_presigned_url(grid_key)
+                    grid_url = grid_presigned["signed_url"]
+                    
+                    # Upload original
+                    ext = original_filename.split('.')[-1] if '.' in original_filename else 'jpg'
+                    orig_key = await upload_to_s3(
+                        image_bytes,
+                        filename=f"original_{uuid.uuid4().hex[:8]}_{run_id}.{ext}",
+                        content_type=content_type,
+                    )
+                    orig_presigned = await generate_presigned_url(orig_key)
+                    original_url = orig_presigned["signed_url"]
+                except Exception as e:
+                    logger.warning(f"Grid/original upload failed: {e}")
+            
+            yield {
+                "event": "status",
+                "data": json.dumps({
+                    "stage": "uploading",
+                    "progress": 20,
+                    "message": "Generating and uploading 30 shipping-optimized variants..."
+                })
+            }
+            
+            # === Stage 3: Generate and stream variants ===
+            from PIL import Image as PILImage
+            
+            for variant_bytes, info in generate_all_shipping_variants(optimized_bytes):
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    logger.info("Client disconnected, stopping variant generation")
+                    break
+                
+                try:
+                    # Upscale and encode for better quality
+                    variant_img = PILImage.open(io.BytesIO(variant_bytes)).convert("RGB")
+                    final_bytes = encode_variant_jpeg(variant_img, output_size=1200)
+                    
+                    # Upload variant
+                    if minio_enabled:
+                        variant_id = uuid.uuid4().hex[:8]
+                        variant_key = await upload_to_s3(
+                            final_bytes,
+                            filename=f"optimized_variant_{info.tile_index}_{info.variant_index}_{variant_id}_{run_id}.jpg",
+                            content_type="image/jpeg",
+                        )
+                        variant_presigned = await generate_presigned_url(variant_key)
+                        variant_url = variant_presigned["signed_url"]
+                        variant_urls.append(variant_url)
+                        
+                        successful_variants += 1
+                        progress = 20 + int((successful_variants / total_variants) * 75)
+                        
+                        yield {
+                            "event": "variant",
+                            "data": json.dumps({
+                                "index": info.global_index,
+                                "tile_index": info.tile_index,
+                                "variant_index": info.variant_index,
+                                "variant_type": info.variant_type.value,
+                                "url": variant_url,
+                                "tile_name": info.tile_name,
+                                "variant_label": info.variant_label,
+                                "completed": successful_variants,
+                                "total": total_variants,
+                                "progress": progress,
+                            })
+                        }
+                except Exception as e:
+                    failed_variants += 1
+                    logger.warning(f"Variant {info.global_index} failed: {e}")
+                    yield {
+                        "event": "error",
+                        "data": json.dumps({
+                            "message": f"Variant {info.global_index + 1} failed: {str(e)}",
+                            "recoverable": True,
+                            "variant_index": info.global_index,
+                        })
+                    }
+            
+            # === Stage 4: Save to database ===
+            cost_fields = metrics.get("cost_fields", {})
+            stage_metrics = metrics.get("stage_metrics", {})
+            input_dims = metrics.get("input_dimensions") or [None, None]
+            output_dims = metrics.get("output_dimensions") or [None, None]
+            
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            
+            processed = ProcessedImage(
+                original_filename=original_filename,
+                azure_blob_url=grid_url,
+                input_size_bytes=metrics.get("input_size_bytes"),
+                output_size_bytes=metrics.get("output_size_bytes"),
+                input_width=input_dims[0] if len(input_dims) > 0 else None,
+                input_height=input_dims[1] if len(input_dims) > 1 else None,
+                output_width=output_dims[0] if len(output_dims) > 0 else None,
+                output_height=output_dims[1] if len(output_dims) > 1 else None,
+                processing_time_ms=processing_time_ms,
+                actual_weight_g=cost_fields.get("actual_weight_g"),
+                volumetric_weight_g=cost_fields.get("volumetric_weight_g"),
+                billable_weight_g=cost_fields.get("billable_weight_g"),
+                shipping_cost_inr=cost_fields.get("shipping_cost_inr"),
+                optimizer_version=metrics.get("optimizer_version", "gpt-image-stream-v1"),
+                stage_metrics_json=json.dumps({
+                    **stage_metrics,
+                    "variant_count": successful_variants,
+                    "variant_failures": failed_variants,
+                }),
+                status="success" if successful_variants > 0 else "error",
+                error_message=None if successful_variants > 0 else "All variants failed",
+                is_trial=is_trial_user,
+                user_id=current_user.id if current_user is not None else None,
+            )
+            
+            db.add(processed)
+            await db.commit()
+            await db.refresh(processed)
+            
+            # === Final: Complete event ===
+            yield {
+                "event": "complete",
+                "data": json.dumps({
+                    "id": str(processed.id),
+                    "total": total_variants,
+                    "successful": successful_variants,
+                    "failed": failed_variants,
+                    "grid_url": grid_url,
+                    "original_url": original_url,
+                    "variant_urls": variant_urls,
+                    "processing_time_ms": processing_time_ms,
+                    "metrics": metrics,
+                })
+            }
+            
+        except Exception as e:
+            logger.exception(f"Streaming optimization failed: {e}")
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "message": f"Optimization failed: {str(e)}",
+                    "recoverable": False,
+                })
+            }
+    
+    return EventSourceResponse(event_generator())
 
 @router.get("/{image_id}/results")
 async def get_image_results(

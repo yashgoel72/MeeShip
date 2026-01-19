@@ -4,7 +4,7 @@ import { Dialog } from '@headlessui/react'
 import UploadZone from '../components/UploadZone'
 import UpgradeBanner from '../components/UpgradeBanner'
 import { useImageUpload } from '../hooks/useImageUpload'
-import { useFluxGeneration } from '../hooks/useFluxGeneration'
+import { useStreamingOptimization } from '../hooks/useStreamingOptimization'
 import { useAuth } from '../context/AuthContext'
 import { useAppStore } from '../stores/appStore'
 
@@ -113,7 +113,7 @@ function SignInModal({ open, onClose }: { open: boolean; onClose: () => void }) 
 export default function LandingScreen() {
   const { isAuthenticated, user } = useAuth()
   const { acceptFile, compressing, compressError } = useImageUpload()
-  const { run } = useFluxGeneration()
+  const { startStreaming } = useStreamingOptimization()
   const originalFile = useAppStore((s) => s.originalFile)
   const compressedFile = useAppStore((s) => s.compressedFile)
   const originalPreviewUrl = useAppStore((s) => s.originalPreviewUrl)
@@ -210,8 +210,8 @@ export default function LandingScreen() {
                     setSignInOpen(true)
                     return
                   }
-                  if (!canGenerate) return
-                  run()
+                  if (!canGenerate || !originalFile) return
+                  startStreaming(originalFile)
                 }}
                 disabled={!canGenerate || compressing}
                 className={
@@ -221,7 +221,7 @@ export default function LandingScreen() {
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none')
                 }
               >
-                {compressing ? 'Preparing...' : ((user?.credits ?? 0) > 0 ? '⚡ Get Optimized Image' : '⚡ Try Free')}
+                {compressing ? 'Preparing...' : ((user?.credits ?? 0) > 0 ? '⚡ Get 30 Optimized Variants' : '⚡ Try Free')}
               </button>
 
               {compressing && (

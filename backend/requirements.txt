@@ -25,3 +25,6 @@ scikit-learn==1.3.2
 
 razorpay==1.4.1
 kinde-python-sdk==2.2.0
+
+# SSE streaming for real-time variant delivery
+sse-starlette==2.1.0
