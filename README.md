@@ -261,6 +261,32 @@ ALLOWED_ORIGINS=https://your-domain.com
 API_URL=https://api.your-domain.com
 ```
 
+### Frontend Deployment on Vercel
+
+The frontend is configured for deployment on [Vercel](https://vercel.com/) with SPA (Single Page Application) support.
+
+**Why `vercel.json` is needed:**  
+React Router uses client-side routing with `BrowserRouter`. When users directly access URLs like `/privacy` or refresh on those pages, Vercel needs to serve `index.html` for all routes so React Router can handle the navigation. Without this configuration, direct URL access returns a 404 error.
+
+The `vercel.json` in the project root configures rewrites to redirect all requests to `index.html`:
+
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+**Deployment steps:**
+1. Connect your GitHub repository to Vercel
+2. Set the **Root Directory** to `frontend`
+3. Vercel will auto-detect Vite and configure build settings
+4. Set environment variables (e.g., `VITE_API_URL`)
+5. Deploy!
+
+All routes (`/privacy`, `/terms`, `/refund`, `/contact`) will work on direct access and refresh.
+
 ## 🤝 Contributing
 
 1. Fork the repository
