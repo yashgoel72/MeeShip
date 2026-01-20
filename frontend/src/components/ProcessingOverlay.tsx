@@ -201,7 +201,7 @@ export default function ProcessingOverlay({ originalUrl, optimizedUrl }: Props) 
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
-                <span className="text-lg font-bold text-emerald-600">₹8-15</span>
+                <span className="text-lg font-bold text-emerald-600">₹10-20</span>
                 <span className="ml-1 text-xs text-slate-500">/order</span>
               </motion.div>
             </div>

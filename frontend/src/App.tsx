@@ -7,6 +7,7 @@ import TermsPage from './screens/TermsPage.tsx'
 import PrivacyPage from './screens/PrivacyPage.tsx'
 import RefundPage from './screens/RefundPage.tsx'
 import ContactPage from './screens/ContactPage.tsx'
+import PricingScreen from './screens/PricingScreen.tsx'
 import { useAppStore } from './stores/appStore.ts'
 
 // Main app flow component (landing -> processing -> result)
@@ -61,6 +62,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<MainFlow />} />
+        <Route path="/pricing" element={<PricingScreen />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/refund" element={<RefundPage />} />
