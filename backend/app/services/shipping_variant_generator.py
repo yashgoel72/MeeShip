@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 class VariantType(str, Enum):
     """Types of shipping-optimized variants."""
-    HERO_COMPACT = "hero_compact"      # 85% zoom-out, max whitespace
+    HERO_COMPACT = "hero_compact"      # 70% zoom-out (30% smaller), max whitespace
     STANDARD = "standard"              # Original framing from model
-    DETAIL_FOCUS = "detail_focus"      # 110% zoom-in for texture detail
-    DYNAMIC_ANGLE = "dynamic_angle"    # Micro-rotate 3° for visual interest
+    DETAIL_FOCUS = "detail_focus"      # Cool tone variant (no zoom)
+    DYNAMIC_ANGLE = "dynamic_angle"    # Micro-rotate 7° for visual interest
     WARM_MINIMAL = "warm_minimal"      # Original size + warm tone + high contrast
 
 
@@ -48,7 +48,7 @@ TILE_NAMES = [
 VARIANT_LABELS = {
     VariantType.HERO_COMPACT: "Hero Compact",
     VariantType.STANDARD: "Standard Frame",
-    VariantType.DETAIL_FOCUS: "Detail Focus",
+    VariantType.DETAIL_FOCUS: "Cool Minimal",
     VariantType.DYNAMIC_ANGLE: "Dynamic Angle",
     VariantType.WARM_MINIMAL: "Warm Minimal",
 }
@@ -184,9 +184,9 @@ def adjust_background_tone(img: Image.Image, warmth: int = 10) -> Image.Image:
     if img.mode != "RGB":
         img = img.convert("RGB")
     
-    # Boost contrast slightly
+    # Boost contrast noticeably
     enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.08)  # 8% contrast boost
+    img = enhancer.enhance(1.18)  # 18% contrast boost
     
     # Apply warmth via color channel adjustment
     if warmth != 0:
@@ -204,9 +204,9 @@ def adjust_background_tone(img: Image.Image, warmth: int = 10) -> Image.Image:
         
         img = Image.merge("RGB", (r, g, b))
     
-    # Slight saturation boost
+# Noticeable saturation boost
     enhancer = ImageEnhance.Color(img)
-    img = enhancer.enhance(1.05)  # 5% saturation boost
+    img = enhancer.enhance(1.15)  # 15% saturation boost
     
     return img
 
@@ -228,11 +228,11 @@ def generate_shipping_variants(tile_img: Image.Image, tile_index: int = 0) -> Ge
         tile_img = tile_img.convert("RGB")
     
     variants = [
-        (VariantType.HERO_COMPACT, lambda img: zoom_out(img, factor=0.85)),
-        (VariantType.STANDARD, lambda img: img.copy()),  # Original unchanged
-        (VariantType.DETAIL_FOCUS, lambda img: zoom_in_safe(img, factor=1.10)),
-        (VariantType.DYNAMIC_ANGLE, lambda img: micro_rotate(img, angle=3.0)),
-        (VariantType.WARM_MINIMAL, lambda img: adjust_background_tone(img, warmth=10)),
+        (VariantType.STANDARD, lambda img: img.copy()),  # Original unchanged (1st)
+        (VariantType.HERO_COMPACT, lambda img: zoom_out(img, factor=0.70)),  # 30% zoomed out
+        (VariantType.DYNAMIC_ANGLE, lambda img: micro_rotate(img, angle=7.0)),  # More noticeable rotation
+        (VariantType.WARM_MINIMAL, lambda img: adjust_background_tone(img, warmth=25)),  # Warmer tone
+        (VariantType.DETAIL_FOCUS, lambda img: adjust_background_tone(img, warmth=-20)),  # Cool tone variant
     ]
     
     for variant_idx, (variant_type, transform_fn) in enumerate(variants):

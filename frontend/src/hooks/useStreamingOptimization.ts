@@ -3,12 +3,14 @@ import { useAppStore } from '../stores/appStore'
 import { streamOptimization, StreamingVariant, StreamingStatus, StreamingError, StreamingComplete } from '../services/api'
 import { compressForUpload } from '../utils/imageCompressor'
 import { trackEvent } from '../utils/posthog'
+import { useAuth } from '../context/AuthContext'
 
 /**
  * Hook for streaming image optimization with real-time variant delivery.
  * Variants appear in the UI as they're generated and uploaded.
  */
 export function useStreamingOptimization() {
+  const { refreshCredits } = useAuth()
   const setScreen = useAppStore((s) => s.setScreen)
   const startProcessing = useAppStore((s) => s.startProcessing)
   const setResult = useAppStore((s) => s.setResult)
@@ -127,6 +129,9 @@ export function useStreamingOptimization() {
               metrics: result.metrics,
             })
 
+            // Refresh credits after successful optimization (credit was consumed)
+            refreshCredits()
+
             setScreen('result')
             trackEvent('optimize_stream_complete', {
               successful: result.successful,
@@ -142,7 +147,7 @@ export function useStreamingOptimization() {
         trackEvent('optimize_stream_error', { error: e?.message })
       }
     },
-    [startProcessing, setResult, setError, setStreamingProgress, addVariant, addStreamingError, markStep, setScreen]
+    [startProcessing, setResult, setError, setStreamingProgress, addVariant, addStreamingError, markStep, setScreen, refreshCredits]
   )
 
   const cancelStreaming = useCallback(() => {
