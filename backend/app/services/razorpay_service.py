@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.order import Order, OrderStatus
+from app.models.subscription import Subscription
 from app.models.user import User
 from app.models.webhook_log import WebhookLog
 from app.schemas.payment import CREDIT_PACKS
@@ -421,16 +422,30 @@ class RazorpayService:
     async def get_user_credit_balance(self, user_id: UUID) -> int:
         """Get current credit balance for a user.
         
+        Includes both paid credits and trial uploads remaining.
+        
         Args:
             user_id: User UUID
             
         Returns:
-            Current credit balance
+            Total credit balance (paid + trial)
         """
+        # Get paid credits from User
         result = await self.db.execute(
             select(User.credits).where(User.id == user_id)
         )
-        return result.scalar_one_or_none() or 0
+        paid_credits = result.scalar_one_or_none() or 0
+        
+        # Get trial credits from Subscription
+        sub_result = await self.db.execute(
+            select(Subscription.trial_uploads_remaining)
+            .where(Subscription.user_id == user_id)
+            .order_by(Subscription.created_at.desc())
+            .limit(1)
+        )
+        trial_credits = sub_result.scalar_one_or_none() or 0
+        
+        return paid_credits + trial_credits
 
     async def get_user_orders(
         self,
