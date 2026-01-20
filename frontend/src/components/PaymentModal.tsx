@@ -278,14 +278,24 @@ export default function PaymentModal({ open, onClose, defaultPackId = "starter",
               type="button"
               onClick={() => selectedPack && startCheckout(selectedPack)}
               disabled={!selectedPack || closeDisabled || step === "loading_packs"}
-              className="rounded-2xl bg-meesho px-5 py-3 text-sm font-extrabold text-white hover:bg-meesho/90 disabled:opacity-60"
+              className="rounded-2xl bg-meesho px-5 py-3 text-sm font-extrabold text-white hover:bg-meesho/90 disabled:opacity-60 flex items-center gap-2"
             >
-              {step === "creating_order" ? "Creating order…" : step === "verifying" ? "Verifying…" : "Pay with Razorpay"}
+              {step === "creating_order" ? "Creating order…" : step === "verifying" ? "Verifying…" : (
+                <>
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Pay securely with Razorpay
+                </>
+              )}
             </button>
           </div>
 
-          <div className="mt-4 text-xs text-slate-500">
-            Uses Razorpay Checkout. Payments are verified on the server before credits are added.
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+            <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M12 1C5.925 1 1 5.925 1 12s4.925 11 11 11 11-4.925 11-11S18.075 1 12 1zm4.768 9.14a.75.75 0 10-1.036-1.08l-4.976 4.78-1.488-1.43a.75.75 0 00-1.036 1.08l2.005 1.93a.75.75 0 001.036 0l5.495-5.28z" clipRule="evenodd" />
+            </svg>
+            <span>Secure payment via Razorpay • PCI-DSS compliant • 256-bit encryption</span>
           </div>
         </div>
       </div>
