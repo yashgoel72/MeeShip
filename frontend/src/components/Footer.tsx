@@ -18,7 +18,7 @@ export default function Footer() {
             </p>
             <p className="mt-3 text-sm text-slate-400">
               AI-powered shipping-optimized product photos for Meesho sellers. 
-              Save ₹8-15 on every order.
+              Save ₹10-20 on every order.
             </p>
             <div className="mt-4 flex items-center gap-2">
               <div className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-300">

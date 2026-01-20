@@ -61,8 +61,16 @@ export default function Header({ onSignIn }: HeaderProps) {
           {isAuthenticated ? (
             <>
               {typeof user?.credits === 'number' && (
-                <div className="hidden rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 sm:block">
-                  {user.credits} credits
+                <div className="hidden items-center gap-2 sm:flex">
+                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                    {user.credits} credits
+                  </div>
+                  <Link
+                    to="/pricing"
+                    className="rounded-full bg-meesho/10 px-3 py-1 text-xs font-semibold text-meesho ring-1 ring-meesho/20 hover:bg-meesho/20 transition-colors"
+                  >
+                    Buy Credits
+                  </Link>
                 </div>
               )}
               {user?.isUpgraded && (
