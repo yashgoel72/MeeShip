@@ -1,10 +1,16 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import LandingScreen from './screens/LandingScreen.tsx'
 import ProcessingScreen from './screens/ProcessingScreen.tsx'
 import ResultScreen from './screens/ResultScreen.tsx'
+import TermsPage from './screens/TermsPage.tsx'
+import PrivacyPage from './screens/PrivacyPage.tsx'
+import RefundPage from './screens/RefundPage.tsx'
+import ContactPage from './screens/ContactPage.tsx'
 import { useAppStore } from './stores/appStore.ts'
 
-function App() {
+// Main app flow component (landing -> processing -> result)
+function MainFlow() {
   const screen = useAppStore((s) => s.screen)
 
   return (
@@ -47,6 +53,20 @@ function App() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MainFlow />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/refund" element={<RefundPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 

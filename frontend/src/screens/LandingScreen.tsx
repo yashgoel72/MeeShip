@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, useScroll } from 'framer-motion'
 import { Dialog } from '@headlessui/react'
 import UploadZone from '../components/UploadZone'
 import UpgradeBanner from '../components/UpgradeBanner'
+import Footer from '../components/Footer'
 import { useImageUpload } from '../hooks/useImageUpload'
 import { useStreamingOptimization } from '../hooks/useStreamingOptimization'
 import { useAuth } from '../context/AuthContext'
@@ -19,15 +21,31 @@ function Header({ onSignIn }: { onSignIn: () => void }) {
   }, [scrollY])
 
   return (
-    <div className={
+    <header className={
       'fixed inset-x-0 top-0 z-40 transition-colors ' +
       (scrolled ? 'bg-white/90 backdrop-blur ring-1 ring-slate-200' : 'bg-transparent')
     }>
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-        <div className="text-sm font-extrabold tracking-tight text-slate-900">
-          MeeshoShipOptimizer
-          <span className="ml-2 inline-block h-0.5 w-10 align-middle bg-underline" />
-        </div>
+        <Link to="/" className="flex items-center gap-3">
+          <div>
+            <div className="text-sm font-extrabold tracking-tight text-slate-900">
+              MeeShip
+              <span className="ml-2 inline-block h-0.5 w-8 align-middle bg-amber-500" />
+            </div>
+            <div className="hidden text-[10px] font-medium text-slate-500 sm:block">
+              Meesho का Smart Shipping Tool
+            </div>
+          </div>
+        </Link>
+
+        <nav className="hidden items-center gap-5 sm:flex">
+          <Link to="/" className="text-sm font-medium text-meesho">
+            Home
+          </Link>
+          <Link to="/contact" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+            Contact
+          </Link>
+        </nav>
 
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
@@ -63,7 +81,7 @@ function Header({ onSignIn }: { onSignIn: () => void }) {
           )}
         </div>
       </div>
-    </div>
+    </header>
   )
 }
 
@@ -131,11 +149,15 @@ export default function LandingScreen() {
       <div className="mx-auto max-w-5xl px-4 pt-24">
         <div className="min-h-[80vh] py-10 sm:py-16">
           <div className="mx-auto max-w-3xl text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-meesho/10 px-4 py-1.5 text-sm font-semibold text-meesho">
+              <span className="flex h-2 w-2 animate-pulse rounded-full bg-meesho" />
+              1 Photo → 30 Studio-Quality Images
+            </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
               Save <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">₹8-15</span> on Every Meesho Order
             </h1>
             <div className="mt-5 text-lg text-slate-600 sm:text-xl">
-              Upload your product photo → Get shipping-optimized image → Pay less on every sale
+              Upload 1 photo → Get <span className="font-semibold text-slate-900">30 studio-quality images</span> → Lower shipping on every sale
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -160,16 +182,45 @@ export default function LandingScreen() {
             {/* Outcome-focused benefits */}
             <div className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
               {[
+                { emoji: '�', text: '30 studio images per upload' },
                 { emoji: '📦', text: 'Lower shipping slab' },
-                { emoji: '💵', text: 'More profit per sale' },
-                { emoji: '⚡', text: 'Ready in seconds' },
-                { emoji: '✅', text: 'Meesho-compliant' },
+                { emoji: '🔄', text: 'Save 2x on returns' },
+                { emoji: '⚡', text: 'Ready in 60 seconds' },
               ].map((b) => (
                 <div key={b.text} className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm text-slate-600 shadow-sm ring-1 ring-slate-100">
                   <span>{b.emoji}</span>
                   {b.text}
                 </div>
               ))}
+            </div>
+
+            {/* ROI Calculator - Show real savings */}
+            <div className="mx-auto mt-6 max-w-2xl overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 ring-1 ring-emerald-200">
+              <div className="px-4 py-3 bg-emerald-100/50 text-center">
+                <span className="text-sm font-semibold text-emerald-800">💡 Your Potential Savings</span>
+              </div>
+              <div className="p-4">
+                <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-slate-900">₹10</div>
+                    <div className="text-xs text-slate-600">saved per order</div>
+                  </div>
+                  <div className="text-2xl text-slate-300">×</div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-slate-900">1,000</div>
+                    <div className="text-xs text-slate-600">orders/month</div>
+                  </div>
+                  <div className="text-2xl text-slate-300">=</div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-emerald-600">₹10,000</div>
+                    <div className="text-xs text-slate-600">monthly profit</div>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <span>🔄</span>
+                  <span><strong>Returns?</strong> You save 2x on shipping (forward + return). More returns = more savings!</span>
+                </div>
+              </div>
             </div>
 
             {/* Upgrade Banner for users with low/no credits */}
@@ -223,8 +274,14 @@ export default function LandingScreen() {
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none')
                 }
               >
-                {compressing ? 'Preparing...' : ((user?.credits ?? 0) > 0 ? '⚡ Get 30 Optimized Variants' : '⚡ Try Free')}
+                {compressing ? 'Preparing...' : ((user?.credits ?? 0) > 0 ? '⚡ Generate 30 Studio Images' : '⚡ Try Free – Get 30 Images')}
               </button>
+
+              {!compressing && (
+                <div className="mt-2 text-center text-xs text-slate-500">
+                  ✨ Professional backgrounds • Perfect lighting • Shipping-optimized
+                </div>
+              )}
 
               {compressing && (
                 <div className="mt-2 text-center text-sm text-slate-500">Preparing your image...</div>
@@ -239,24 +296,27 @@ export default function LandingScreen() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-                <div className="mb-2 text-2xl font-bold text-emerald-600">₹1.2 Cr</div>
-                <div className="text-sm text-slate-900">"Total saved across 15 lakh orders"</div>
-                <div className="mt-2 text-sm text-slate-500">Rahul • Surat</div>
-              </div>
-              <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-                <div className="mb-2 text-2xl font-bold text-emerald-600">₹23 → ₹15</div>
-                <div className="text-sm text-slate-900">"Shipping dropped on every order"</div>
+                <div className="mb-2 text-2xl font-bold text-emerald-600">₹65,000+</div>
+                <div className="text-sm text-slate-900">"Total saved in 3 months on 5000 orders"</div>
                 <div className="mt-2 text-sm text-slate-500">Priya • Delhi</div>
               </div>
               <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-                <div className="mb-2 text-2xl font-bold text-emerald-600">₹45 → ₹22</div>
-                <div className="text-sm text-slate-900">"Same product, half the shipping"</div>
+                <div className="mb-2 text-2xl font-bold text-emerald-600">₹110 → ₹71</div>
+                <div className="text-sm text-slate-900">"Saree shipping cut by ₹39!"</div>
+                <div className="mt-2 text-sm text-slate-500">Rahul • Surat</div>
+              </div>
+              <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+                <div className="mb-2 text-2xl font-bold text-emerald-600">₹68 → ₹52</div>
+                <div className="text-sm text-slate-900">"Every t-shirt order saves ₹16"</div>
                 <div className="mt-2 text-sm text-slate-500">Vikram • Mumbai</div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <Footer />
 
       <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
 
