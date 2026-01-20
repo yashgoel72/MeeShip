@@ -86,95 +86,6 @@ export type StreamingCallbacks = {
 };
 
 /**
- * Mock SSE stream for testing frontend parsing.
- * This simulates the exact format the backend returns.
- */
-const mockStreamOptimization = (
-  formData: FormData,
-  callbacks: StreamingCallbacks
-): { abort: () => void } => {
-  let aborted = false;
-  
-  const mockEvents = [
-    { event: "status", data: { stage: "generating", progress: 0, message: "Generating your product images with AI..." } },
-    { event: "status", data: { stage: "processing", progress: 15, message: "AI generation complete. Creating shipping variants..." } },
-    { event: "status", data: { stage: "uploading", progress: 20, message: "Generating and uploading 30 shipping-optimized variants..." } },
-  ];
-  
-  // Add 30 variant events
-  const tileNames = ["Hero White", "Styled Neutral Context", "Dramatic Light & Detail", "Secondary Clean Angle", "Dark Luxury Editorial", "Floating / Lightness Shot"];
-  const variantTypes = ["hero_compact", "standard", "detail_focus", "dynamic_angle", "warm_minimal"];
-  const variantLabels = ["Hero Compact", "Standard Frame", "Detail Focus", "Dynamic Angle", "Warm Minimal"];
-  
-  let globalIndex = 0;
-  for (let tile = 0; tile < 6; tile++) {
-    for (let variant = 0; variant < 5; variant++) {
-      mockEvents.push({
-        event: "variant",
-        data: {
-          index: globalIndex,
-          tile_index: tile,
-          variant_index: variant,
-          variant_type: variantTypes[variant],
-          url: `https://picsum.photos/seed/${globalIndex}/400/600`,
-          tile_name: tileNames[tile],
-          variant_label: variantLabels[variant],
-          completed: globalIndex + 1,
-          total: 30,
-          progress: 22 + Math.floor((globalIndex / 30) * 73),
-        }
-      });
-      globalIndex++;
-    }
-  }
-  
-  // Add complete event
-  mockEvents.push({
-    event: "complete",
-    data: {
-      id: "mock-id-12345",
-      total: 30,
-      successful: 30,
-      failed: 0,
-      grid_url: "https://picsum.photos/seed/grid/800/1200",
-      original_url: "https://picsum.photos/seed/original/400/400",
-      variant_urls: Array.from({ length: 30 }, (_, i) => `https://picsum.photos/seed/${i}/400/600`),
-      processing_time_ms: 5000,
-      metrics: {},
-    }
-  });
-  
-  // Emit events with delays
-  (async () => {
-    for (const evt of mockEvents) {
-      if (aborted) break;
-      
-      await new Promise(r => setTimeout(r, evt.event === "variant" ? 100 : 300));
-      
-      if (aborted) break;
-      
-      console.log(`[MOCK SSE] ${evt.event}:`, evt.data);
-      
-      switch (evt.event) {
-        case "status":
-          callbacks.onStatus?.(evt.data as StreamingStatus);
-          break;
-        case "variant":
-          callbacks.onVariant?.(evt.data as StreamingVariant);
-          break;
-        case "complete":
-          callbacks.onComplete?.(evt.data as StreamingComplete);
-          break;
-      }
-    }
-  })();
-  
-  return {
-    abort: () => { aborted = true; },
-  };
-};
-
-/**
  * Stream optimization with Server-Sent Events.
  * Variants are delivered incrementally as they're generated.
  * 
@@ -186,13 +97,6 @@ export const streamOptimization = (
   formData: FormData,
   callbacks: StreamingCallbacks
 ): { abort: () => void } => {
-  // USE MOCK FOR TESTING - change to false to use real backend
-  const USE_MOCK = false;
-  if (USE_MOCK) {
-    console.log('[SSE] Using MOCK stream for testing');
-    return mockStreamOptimization(formData, callbacks);
-  }
-  
   const token = localStorage.getItem("jwt");
   const abortController = new AbortController();
   
