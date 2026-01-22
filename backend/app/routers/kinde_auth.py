@@ -168,19 +168,10 @@ async def kinde_callback(
             kinde_id=kinde_id,
             email_verified=True,  # Kinde handles email verification
             hashed_password=None,  # No password for Kinde users
-            credits=0,  # Start with 0 credits
+            credits=1,  # New users get 1 free credit
             is_active=True
         )
         db.add(user)
-        await db.flush()
-        
-        # Create trial subscription for new users
-        trial_subscription = Subscription(
-            user_id=user.id,
-            tier="trial",
-            trial_uploads_remaining=2  # 2 free trial images
-        )
-        db.add(trial_subscription)
         await db.commit()
         await db.refresh(user)
     
