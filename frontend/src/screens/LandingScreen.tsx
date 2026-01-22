@@ -193,7 +193,7 @@ export default function LandingScreen() {
                 { icon: '📸', text: '30 studio images', subtext: 'per upload', color: 'from-blue-50 to-indigo-50 ring-blue-100' },
                 { icon: '📦', text: 'Lower shipping', subtext: 'slab reduction', color: 'from-emerald-50 to-teal-50 ring-emerald-100' },
                 { icon: '↩️', text: 'Save 2x', subtext: 'on returns', color: 'from-purple-50 to-pink-50 ring-purple-100' },
-                { icon: '⚡', text: '60 seconds', subtext: 'delivery', color: 'from-amber-50 to-orange-50 ring-amber-100' },
+                { icon: '⚡', text: '~1 minute', subtext: 'delivery', color: 'from-amber-50 to-orange-50 ring-amber-100' },
               ].map((b) => (
                 <motion.div 
                   key={b.text} 

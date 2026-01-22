@@ -48,22 +48,22 @@ async function loadRazorpayScript(): Promise<void> {
 
 const PACK_FEATURES: Record<CreditPackId, string[]> = {
   starter: [
-    '10 products × 30 images each',
+    '10 credits',
     'Studio-quality output',
     'No watermarks',
     'Valid for 7 days'
   ],
   pro: [
-    '75 products × 30 images each',
+    '50 credits',
     'Studio-quality output',
     'No watermarks',
     'Valid for 30 days'
   ],
   enterprise: [
-    '250 products × 30 images each',
+    '150 credits',
     'Studio-quality output',
     'No watermarks',
-    'Valid for 90 days'
+    'Valid for 60 days'
   ]
 }
 

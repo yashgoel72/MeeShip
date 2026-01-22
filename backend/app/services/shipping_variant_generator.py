@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 class VariantType(str, Enum):
     """Types of shipping-optimized variants."""
-    HERO_COMPACT = "hero_compact"      # 70% zoom-out (30% smaller), max whitespace
+    HERO_COMPACT = "hero_compact"      # 20% zoom-out, max whitespace
     STANDARD = "standard"              # Original framing from model
-    DETAIL_FOCUS = "detail_focus"      # Cool tone variant (no zoom)
-    DYNAMIC_ANGLE = "dynamic_angle"    # Micro-rotate 7° for visual interest
-    WARM_MINIMAL = "warm_minimal"      # Original size + warm tone + high contrast
+    DETAIL_FOCUS = "detail_focus"      # Cool tone variant
+    WARM_MINIMAL = "warm_minimal"      # Warm tone variant
+    HIGH_CONTRAST = "high_contrast"    # High contrast for visibility
 
 
 @dataclass
@@ -46,11 +46,11 @@ TILE_NAMES = [
 ]
 
 VARIANT_LABELS = {
-    VariantType.HERO_COMPACT: "Hero Compact",
-    VariantType.STANDARD: "Standard Frame",
+    VariantType.HERO_COMPACT: "Zoom Out",
+    VariantType.STANDARD: "Standard",
     VariantType.DETAIL_FOCUS: "Cool Minimal",
-    VariantType.DYNAMIC_ANGLE: "Dynamic Angle",
     VariantType.WARM_MINIMAL: "Warm Minimal",
+    VariantType.HIGH_CONTRAST: "High Contrast",
 }
 
 
@@ -211,6 +211,35 @@ def adjust_background_tone(img: Image.Image, warmth: int = 10) -> Image.Image:
     return img
 
 
+def high_contrast(img: Image.Image) -> Image.Image:
+    """Apply high contrast enhancement for better product visibility.
+    
+    Makes the product pop against the background - great for crowded feeds.
+    
+    Args:
+        img: Source PIL Image
+    
+    Returns:
+        High contrast enhanced image.
+    """
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    
+    # Strong contrast boost
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(1.35)  # 35% contrast boost
+    
+    # Slight sharpness boost
+    enhancer = ImageEnhance.Sharpness(img)
+    img = enhancer.enhance(1.15)  # 15% sharpness
+    
+    # Slight saturation boost
+    enhancer = ImageEnhance.Color(img)
+    img = enhancer.enhance(1.10)  # 10% saturation
+    
+    return img
+
+
 def generate_shipping_variants(tile_img: Image.Image, tile_index: int = 0) -> Generator[Tuple[Image.Image, VariantInfo], None, None]:
     """Generate 5 shipping-optimized variants for a single base tile.
     
@@ -227,12 +256,13 @@ def generate_shipping_variants(tile_img: Image.Image, tile_index: int = 0) -> Ge
     if tile_img.mode != "RGB":
         tile_img = tile_img.convert("RGB")
     
+    # All 5 variants for each tile: Standard, Cool, Warm, Zoom Out, High Contrast
     variants = [
-        (VariantType.STANDARD, lambda img: img.copy()),  # Original unchanged (1st)
-        (VariantType.HERO_COMPACT, lambda img: zoom_out(img, factor=0.70)),  # 30% zoomed out
-        (VariantType.DYNAMIC_ANGLE, lambda img: micro_rotate(img, angle=7.0)),  # More noticeable rotation
-        (VariantType.WARM_MINIMAL, lambda img: adjust_background_tone(img, warmth=25)),  # Warmer tone
-        (VariantType.DETAIL_FOCUS, lambda img: adjust_background_tone(img, warmth=-20)),  # Cool tone variant
+        (VariantType.STANDARD, lambda img: img.copy()),  # Original unchanged
+        (VariantType.DETAIL_FOCUS, lambda img: adjust_background_tone(img, warmth=-20)),  # Cool tone
+        (VariantType.WARM_MINIMAL, lambda img: adjust_background_tone(img, warmth=25)),  # Warm tone
+        (VariantType.HERO_COMPACT, lambda img: zoom_out(img, factor=0.80)),  # 20% zoomed out
+        (VariantType.HIGH_CONTRAST, lambda img: high_contrast(img)),  # High contrast for visibility
     ]
     
     for variant_idx, (variant_type, transform_fn) in enumerate(variants):
@@ -295,13 +325,13 @@ def generate_all_shipping_variants(grid_image_bytes: bytes, tile_px: int = 512) 
 def encode_variant_jpeg(
     img: Image.Image,
     output_size: int = 1200,
-    target_kb_range: Tuple[int, int] = (150, 300),
+    target_kb_range: Tuple[int, int] = (100, 200),
 ) -> bytes:
     """Encode a variant image to JPEG with size optimization.
     
     Args:
         img: Source PIL Image
-        output_size: Target output dimension (square)
+        output_size: Target output dimension (square) - 1200px for high quality
         target_kb_range: Target file size range in KB
     
     Returns:

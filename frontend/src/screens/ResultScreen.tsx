@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import PaymentModal from '../components/PaymentModal'
 import { useAppStore, VariantMeta } from '../stores/appStore'
@@ -6,15 +6,25 @@ import { proxyMinioUrl } from '../utils/minioProxy.ts'
 import { trackEvent } from '../utils/posthog.ts'
 import { useAuth } from '../context/AuthContext'
 
-// Tile names for grouping
+// Tile names for grouping - 4 Shipping + 2 Lifestyle
 const TILE_NAMES = [
-  'Hero White',
-  'Styled Neutral',
-  'Dramatic Light',
-  'Secondary Angle',
+  'Hero Front View',
+  'Top View',
+  '3/4 Angle',
   'Dark Luxury',
-  'Floating Shot',
+  'In-Use Lifestyle',
+  'Styled Scene',
 ]
+
+// Tile metadata for sections
+const TILE_META: Record<number, { section: 'shipping' | 'lifestyle'; tip: string }> = {
+  0: { section: 'shipping', tip: 'Best for: Main listing image' },
+  1: { section: 'shipping', tip: 'Best for: Flat lay size reference' },
+  2: { section: 'shipping', tip: 'Best for: Detail visibility' },
+  3: { section: 'shipping', tip: 'Best for: Premium brand feel' },
+  4: { section: 'lifestyle', tip: 'Best for: Social media & ads' },
+  5: { section: 'lifestyle', tip: 'Best for: Instagram & catalog' },
+}
 
 function ConfettiBurst() {
   const pieces = Array.from({ length: 18 }).map((_, i) => i)
@@ -82,6 +92,34 @@ export default function ResultScreen() {
   const [downloadingAll, setDownloadingAll] = useState(false)
   const [expandedTile, setExpandedTile] = useState<number | null>(null)
 
+  // Warn user before leaving page (refresh/close) - results will be lost
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only warn if we have results
+      if (result?.variants?.length || result?.variant_blob_urls?.length) {
+        e.preventDefault()
+        e.returnValue = 'Your generated images will be lost if you leave. Are you sure?'
+        return e.returnValue
+      }
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [result])
+
+  // Handler for "Generate Another" with confirmation
+  const handleGenerateAnother = () => {
+    const hasResults = result?.variants?.length || result?.variant_blob_urls?.length
+    if (hasResults) {
+      const confirmed = window.confirm(
+        'Your current images will be lost. Make sure you\'ve downloaded the ones you need!\n\nAre you sure you want to generate new images?'
+      )
+      if (!confirmed) return
+    }
+    trackEvent('generate_another')
+    resetFlow()
+  }
+
   // Use detailed variants if available, otherwise fall back to flat URLs
   const variants = useMemo(() => {
     if (result?.variants && result.variants.length > 0) {
@@ -90,17 +128,26 @@ export default function ResultScreen() {
         url: proxyMinioUrl(v.url),
       }))
     }
-    // Fallback: convert flat URLs to variant format
+    // Fallback: convert flat URLs to variant format (5 variants per tile)
+    // All tiles get: Standard, Cool, Warm, Zoom Out, High Contrast
     const urls = result?.variant_blob_urls
     if (!urls || urls.length === 0) return []
-    return urls.map((u, idx) => ({
-      url: proxyMinioUrl(u),
-      tile_index: Math.floor(idx / 5),
-      variant_index: idx % 5,
-      variant_type: ['hero_compact', 'standard', 'detail_focus', 'dynamic_angle', 'warm_minimal'][idx % 5],
-      tile_name: TILE_NAMES[Math.floor(idx / 5)] || `Tile ${Math.floor(idx / 5) + 1}`,
-      variant_label: ['Hero Compact', 'Standard', 'Detail Focus', 'Dynamic Angle', 'Warm Minimal'][idx % 5],
-    }))
+    return urls.map((u, idx) => {
+      const tileIdx = Math.floor(idx / 5)
+      const variantIdx = idx % 5
+      
+      const variantTypes = ['standard', 'detail_focus', 'warm_minimal', 'hero_compact', 'high_contrast']
+      const variantLabels = ['Standard', 'Cool Minimal', 'Warm Minimal', 'Zoom Out', 'High Contrast']
+      
+      return {
+        url: proxyMinioUrl(u),
+        tile_index: tileIdx,
+        variant_index: variantIdx,
+        variant_type: variantTypes[variantIdx],
+        tile_name: TILE_NAMES[tileIdx] || `Tile ${tileIdx + 1}`,
+        variant_label: variantLabels[variantIdx],
+      }
+    })
   }, [result?.variants, result?.variant_blob_urls])
 
   // Group variants by tile
@@ -176,10 +223,7 @@ export default function ResultScreen() {
       <div className="mx-auto max-w-5xl px-4 pt-8">
         <button
           type="button"
-          onClick={() => {
-            trackEvent('generate_another')
-            resetFlow()
-          }}
+          onClick={handleGenerateAnother}
           className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-white"
         >
           ← Generate Another
@@ -220,7 +264,7 @@ export default function ResultScreen() {
               <div className="mt-1 text-sm text-slate-500">
                 {isStreaming 
                   ? streamingProgress.message || 'Generating variants...'
-                  : '6 tile styles × 5 shipping variants each — pick your favorites!'
+                  : '6 tile styles × 5 variants each'
                 }
               </div>
             </div>
@@ -236,125 +280,234 @@ export default function ResultScreen() {
               {downloadingAll ? 'Downloading...' : `Download All ${variants.length}`}
             </button>
           </div>
+        </div>
 
-          {/* Tile-based grid layout */}
-          <div className="mt-5 space-y-6">
-            {Array.from({ length: 6 }).map((_, tileIdx) => {
-              const tileVariants = variantsByTile.get(tileIdx) || []
-              const tileName = TILE_NAMES[tileIdx]
-              const isExpanded = expandedTile === tileIdx
-              const expectedVariants = 5
-              const pendingCount = Math.max(0, expectedVariants - tileVariants.length)
-              
-              // Show tile if it has variants or if we're still streaming
-              if (tileVariants.length === 0 && !isStreaming) return null
-              
-              return (
-                <div key={tileIdx} className="rounded-2xl ring-1 ring-slate-200 overflow-hidden">
-                  {/* Tile header */}
-                  <button
-                    type="button"
-                    onClick={() => setExpandedTile(isExpanded ? null : tileIdx)}
-                    className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-meesho/10 text-meesho font-bold text-sm">
-                        {tileIdx + 1}
-                      </div>
-                      <div className="text-left">
-                        <div className="font-semibold text-slate-900">{tileName}</div>
-                        <div className="text-xs text-slate-500">
-                          {tileVariants.length}/{expectedVariants} variants
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {tileVariants.length > 0 && (
-                        <div className="flex -space-x-2">
-                          {tileVariants.slice(0, 3).map((v, i) => (
-                            <img 
-                              key={i} 
-                              src={v.url} 
-                              alt="" 
-                              className="w-8 h-8 rounded-lg ring-2 ring-white object-cover"
-                            />
-                          ))}
-                          {tileVariants.length > 3 && (
-                            <div className="w-8 h-8 rounded-lg ring-2 ring-white bg-slate-200 flex items-center justify-center text-xs font-medium text-slate-600">
-                              +{tileVariants.length - 3}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <svg 
-                        className={`h-5 w-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor" 
-                        strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </button>
-                  
-                  {/* Expanded variant grid */}
-                  {isExpanded && (
-                    <div className="p-4 border-t border-slate-200">
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
-                        {tileVariants.map((v, idx) => (
-                          <motion.div
-                            key={`${v.tile_index}-${v.variant_index}`}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: idx * 0.05 }}
-                            className="group relative aspect-square overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-200 hover:ring-meesho hover:ring-2 transition-all"
-                          >
-                            <img src={v.url} alt={v.variant_label} className="h-full w-full object-cover" />
-                            {/* Variant label badge */}
-                            <div className="absolute top-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
-                              {v.variant_label}
-                            </div>
-                            {/* Hover overlay with download */}
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 group-hover:bg-black/30 group-hover:opacity-100 transition-all">
-                              <button
-                                type="button"
-                                onClick={() => download(v.url, `meeship_${tileName.replace(/\s+/g, '_')}_${v.variant_label.replace(/\s+/g, '_')}.jpg`)}
-                                disabled={downloadState === 'downloading'}
-                                className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-lg hover:bg-slate-50 transition-colors disabled:opacity-60"
-                              >
-                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                Download
-                              </button>
-                            </div>
-                          </motion.div>
-                        ))}
-                        {/* Skeleton loaders for pending variants */}
-                        {isStreaming && Array.from({ length: pendingCount }).map((_, i) => (
-                          <SkeletonVariant key={`skeleton-${tileIdx}-${i}`} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+        {/* SECTION 1: Shipping-Optimized Images */}
+        <div className="mt-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 rounded-full bg-blue-100 px-4 py-2">
+              <span className="text-lg">🚚</span>
+              <span className="font-semibold text-blue-800">Shipping-Optimized</span>
+            </div>
+            <span className="text-sm text-slate-500">Clean backgrounds for accurate shipping estimates</span>
           </div>
+          
+          <div className="rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+            <div className="space-y-4">
+              {[0, 1, 2, 3].map((tileIdx) => {
+                const tileVariants = variantsByTile.get(tileIdx) || []
+                const tileName = TILE_NAMES[tileIdx]
+                const tileMeta = TILE_META[tileIdx]
+                const isExpanded = expandedTile === tileIdx
+                const expectedVariants = 5
+                const pendingCount = Math.max(0, expectedVariants - tileVariants.length)
+                
+                if (tileVariants.length === 0 && !isStreaming) return null
+              
+                return (
+                  <div key={tileIdx} className="rounded-2xl ring-1 ring-slate-200 overflow-hidden">
+                    {/* Tile header */}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedTile(isExpanded ? null : tileIdx)}
+                      className="w-full flex items-center justify-between p-4 bg-blue-50/50 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold text-sm">
+                          {tileIdx + 1}
+                        </div>
+                        <div className="text-left">
+                          <div className="font-semibold text-slate-900">{tileName}</div>
+                          <div className="text-xs text-slate-500">
+                            {tileMeta.tip} • {tileVariants.length}/{expectedVariants} variants
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {tileVariants.length > 0 && (
+                          <div className="flex -space-x-2">
+                            {tileVariants.slice(0, 3).map((v, i) => (
+                              <img 
+                                key={i} 
+                                src={v.url} 
+                                alt="" 
+                                className="w-8 h-8 rounded-lg ring-2 ring-white object-cover"
+                              />
+                            ))}
+                            {tileVariants.length > 3 && (
+                              <div className="w-8 h-8 rounded-lg ring-2 ring-white bg-slate-200 flex items-center justify-center text-xs font-medium text-slate-600">
+                                +{tileVariants.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <svg 
+                          className={`h-5 w-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor" 
+                          strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
+                    
+                    {/* Expanded variant grid */}
+                    {isExpanded && (
+                      <div className="p-4 border-t border-slate-200">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
+                          {tileVariants.map((v, idx) => (
+                            <motion.div
+                              key={`${v.tile_index}-${v.variant_index}`}
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: idx * 0.05 }}
+                              className="group relative aspect-square overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-200 hover:ring-blue-500 hover:ring-2 transition-all"
+                            >
+                              <img src={v.url} alt={v.variant_label} className="h-full w-full object-cover" />
+                              {/* Hover overlay with download */}
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 group-hover:bg-black/30 group-hover:opacity-100 transition-all">
+                                <button
+                                  type="button"
+                                  onClick={() => download(v.url, `meeship_${tileName.replace(/\s+/g, '_')}_${v.variant_label.replace(/\s+/g, '_')}.jpg`)}
+                                  disabled={downloadState === 'downloading'}
+                                  className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-lg hover:bg-slate-50 transition-colors disabled:opacity-60"
+                                >
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  Download
+                                </button>
+                              </div>
+                            </motion.div>
+                          ))}
+                          {/* Skeleton loaders for pending variants */}
+                          {isStreaming && Array.from({ length: pendingCount }).map((_, i) => (
+                            <SkeletonVariant key={`skeleton-${tileIdx}-${i}`} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
 
-          {/* Mobile download all button */}
-          <button
-            type="button"
-            onClick={downloadAll}
-            disabled={downloadingAll || downloadState === 'downloading' || variants.length === 0}
-            className="mt-4 w-full sm:hidden flex items-center justify-center gap-2 rounded-xl bg-meesho px-4 py-3 text-sm font-semibold text-white hover:bg-meesho/90 transition-colors disabled:opacity-60"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            {downloadingAll ? 'Downloading...' : `Download All ${variants.length}`}
-          </button>
+        {/* SECTION 2: Lifestyle & Marketing Images */}
+        <div className="mt-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 rounded-full bg-purple-100 px-4 py-2">
+              <span className="text-lg">✨</span>
+              <span className="font-semibold text-purple-800">Lifestyle & Marketing</span>
+            </div>
+            <span className="text-sm text-slate-500">Engaging images for ads and social media</span>
+          </div>
+          
+          <div className="rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+            <div className="space-y-4">
+              {[4, 5].map((tileIdx) => {
+                const tileVariants = variantsByTile.get(tileIdx) || []
+                const tileName = TILE_NAMES[tileIdx]
+                const tileMeta = TILE_META[tileIdx]
+                const isExpanded = expandedTile === tileIdx
+                const expectedVariants = 5
+                const pendingCount = Math.max(0, expectedVariants - tileVariants.length)
+                
+                if (tileVariants.length === 0 && !isStreaming) return null
+              
+                return (
+                  <div key={tileIdx} className="rounded-2xl ring-1 ring-slate-200 overflow-hidden">
+                    {/* Tile header */}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedTile(isExpanded ? null : tileIdx)}
+                      className="w-full flex items-center justify-between p-4 bg-purple-50/50 hover:bg-purple-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 text-purple-700 font-bold text-sm">
+                          {tileIdx + 1}
+                        </div>
+                        <div className="text-left">
+                          <div className="font-semibold text-slate-900">{tileName}</div>
+                          <div className="text-xs text-slate-500">
+                            {tileMeta.tip} • {tileVariants.length}/{expectedVariants} variants
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {tileVariants.length > 0 && (
+                          <div className="flex -space-x-2">
+                            {tileVariants.slice(0, 3).map((v, i) => (
+                              <img 
+                                key={i} 
+                                src={v.url} 
+                                alt="" 
+                                className="w-8 h-8 rounded-lg ring-2 ring-white object-cover"
+                              />
+                            ))}
+                            {tileVariants.length > 3 && (
+                              <div className="w-8 h-8 rounded-lg ring-2 ring-white bg-slate-200 flex items-center justify-center text-xs font-medium text-slate-600">
+                                +{tileVariants.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <svg 
+                          className={`h-5 w-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor" 
+                          strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
+                    
+                    {/* Expanded variant grid */}
+                    {isExpanded && (
+                      <div className="p-4 border-t border-slate-200">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
+                          {tileVariants.map((v, idx) => (
+                            <motion.div
+                              key={`${v.tile_index}-${v.variant_index}`}
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: idx * 0.05 }}
+                              className="group relative aspect-square overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-200 hover:ring-purple-500 hover:ring-2 transition-all"
+                            >
+                              <img src={v.url} alt={v.variant_label} className="h-full w-full object-cover" />
+                              {/* Hover overlay with download */}
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 group-hover:bg-black/30 group-hover:opacity-100 transition-all">
+                                <button
+                                  type="button"
+                                  onClick={() => download(v.url, `meeship_${tileName.replace(/\s+/g, '_')}_${v.variant_label.replace(/\s+/g, '_')}.jpg`)}
+                                  disabled={downloadState === 'downloading'}
+                                  className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-lg hover:bg-slate-50 transition-colors disabled:opacity-60"
+                                >
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  Download
+                                </button>
+                              </div>
+                            </motion.div>
+                          ))}
+                          {/* Skeleton loaders for pending variants */}
+                          {isStreaming && Array.from({ length: pendingCount }).map((_, i) => (
+                            <SkeletonVariant key={`skeleton-${tileIdx}-${i}`} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Tips section */}
@@ -366,8 +519,12 @@ export default function ResultScreen() {
               </svg>
             </div>
             <div>
-              <div className="text-sm font-semibold text-emerald-800">Pro tip</div>
-              <div className="text-sm text-emerald-700">Use Variant #1 as your main listing image for best results. Try different variants if one doesn't perform well!</div>
+              <div className="text-sm font-semibold text-emerald-800">Pro tips</div>
+              <div className="text-sm text-emerald-700">
+                <span className="inline-flex items-center gap-1"><span className="text-blue-600">🚚</span> Use <strong>shipping images</strong> for your main product listing — they help Meesho calculate accurate shipping costs.</span>
+                <br />
+                <span className="inline-flex items-center gap-1 mt-1"><span className="text-purple-600">✨</span> Use <strong>lifestyle images</strong> for ads and social media to boost engagement!</span>
+              </div>
             </div>
           </div>
         </div>
