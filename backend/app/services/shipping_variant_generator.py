@@ -324,14 +324,14 @@ def generate_all_shipping_variants(grid_image_bytes: bytes, tile_px: int = 512) 
 
 def encode_variant_jpeg(
     img: Image.Image,
-    output_size: int = 800,
+    output_size: int = 1200,
     target_kb_range: Tuple[int, int] = (100, 200),
 ) -> bytes:
     """Encode a variant image to JPEG with size optimization.
     
     Args:
         img: Source PIL Image
-        output_size: Target output dimension (square) - 800px optimized for Meesho shipping
+        output_size: Target output dimension (square) - 1200px for high quality
         target_kb_range: Target file size range in KB
     
     Returns:
