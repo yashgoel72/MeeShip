@@ -41,7 +41,7 @@ export default function ProcessingOverlay({ originalUrl, optimizedUrl }: Props) 
               </div>
               <div className="hidden sm:flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-slate-100">
                 <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-                <span className="text-sm font-medium text-slate-600">2-8 sec</span>
+                <span className="text-sm font-medium text-slate-600">45-60 sec</span>
               </div>
             </div>
           </div>

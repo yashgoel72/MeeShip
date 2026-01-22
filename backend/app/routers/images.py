@@ -752,9 +752,9 @@ async def optimize_image_stream(
                     break
                 
                 try:
-                    # Upscale and encode for better quality
+                    # Upscale and encode - 800px optimized for Meesho shipping estimates
                     variant_img = PILImage.open(io.BytesIO(variant_bytes)).convert("RGB")
-                    final_bytes = encode_variant_jpeg(variant_img, output_size=1200)
+                    final_bytes = encode_variant_jpeg(variant_img, output_size=800)
                     
                     # Upload variant
                     if minio_enabled:

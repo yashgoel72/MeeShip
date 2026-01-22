@@ -12,9 +12,11 @@ from pydantic import BaseModel, Field
 
 
 # Credit Pack Configuration
+# Cost per image generation: ~₹4.5
+# Pricing designed for 44-55% margin
 CREDIT_PACKS = {
     "starter": {
-        "name": "MeeShip Trial",
+        "name": "MeeShip Starter",
         "credits": 10,
         "price_inr": 99,
         "price_paise": 9900,
@@ -23,19 +25,19 @@ CREDIT_PACKS = {
     },
     "pro": {
         "name": "MeeShip Pro",
-        "credits": 75,
-        "price_inr": 499,
-        "price_paise": 49900,
-        "per_image_cost": 6.65,
+        "credits": 50,
+        "price_inr": 449,
+        "price_paise": 44900,
+        "per_image_cost": 8.98,
         "validity_days": 30,
     },
     "enterprise": {
-        "name": "MeeShip Max",
-        "credits": 250,
-        "price_inr": 999,
-        "price_paise": 99900,
-        "per_image_cost": 4.00,
-        "validity_days": 90,
+        "name": "MeeShip Business",
+        "credits": 150,
+        "price_inr": 1199,
+        "price_paise": 119900,
+        "per_image_cost": 7.99,
+        "validity_days": 60,
     },
 }
 
