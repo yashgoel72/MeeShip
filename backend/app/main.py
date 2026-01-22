@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,6 +79,16 @@ app.include_router(dashboard.router, prefix="/api")
 app.include_router(images.router)
 app.include_router(payment.router, prefix="/api")
 app.include_router(kinde_auth.router)  # Kinde OAuth routes
+
+
+# Google Search Console verification
+@app.get("/googlef53f293e5c4b7e48.html", tags=["Verification"])
+async def google_site_verification():
+    """Google Search Console site verification."""
+    return PlainTextResponse(
+        content="google-site-verification: googlef53f293e5c4b7e48.html",
+        media_type="text/html"
+    )
 
 
 @app.get("/health", tags=["Health"])

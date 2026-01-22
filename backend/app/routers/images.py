@@ -314,31 +314,17 @@ async def optimize_image_endpoint(
     minio_enabled: bool = Depends(get_minio_enabled),
     current_user=Depends(get_current_user_optional),
 ):
-    # --- Credits/Trial logic enforcement ---
+    # --- Credits enforcement ---
     is_trial_user = False
     if current_user is not None:
-        # Check if user has valid credits
-        from datetime import datetime, timezone
-        has_valid_credits = (
-            current_user.credits > 0 and
-            (current_user.credits_expires_at is None or 
-             current_user.credits_expires_at > datetime.now(timezone.utc))
-        )
-        
-        if has_valid_credits:
-            # Paid user - deduct 1 credit
-            current_user.credits -= 1
-            await db.commit()
-            is_trial_user = False
-        else:
-            # Trial user - check trial limit (max 2 free images)
-            is_trial_user = True
-            allowed = await is_trial_upload_allowed(current_user.id, db)
-            if not allowed:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Trial upload limit reached (2 free images). Please upgrade to continue."
-                )
+        if current_user.credits <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No credits remaining. Please purchase credits to continue."
+            )
+        # Deduct 1 credit
+        current_user.credits -= 1
+        await db.commit()
     try:
         image_bytes = await file.read()
         dims = None
@@ -597,26 +583,17 @@ async def optimize_image_stream(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid dimensions_cm format.")
 
-    # Credits/Trial logic
+    # --- Credits enforcement ---
     is_trial_user = False
     if current_user is not None:
-        from datetime import datetime, timezone
-        has_valid_credits = (
-            current_user.credits > 0 and
-            (current_user.credits_expires_at is None or 
-             current_user.credits_expires_at > datetime.now(timezone.utc))
-        )
-        if has_valid_credits:
-            current_user.credits -= 1
-            await db.commit()
-        else:
-            is_trial_user = True
-            allowed = await is_trial_upload_allowed(current_user.id, db)
-            if not allowed:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Trial upload limit reached. Please upgrade to continue."
-                )
+        if current_user.credits <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No credits remaining. Please purchase credits to continue."
+            )
+        # Deduct 1 credit
+        current_user.credits -= 1
+        await db.commit()
 
     async def event_generator() -> AsyncGenerator[dict, None]:
         """Generate SSE events as variants are created and uploaded."""
