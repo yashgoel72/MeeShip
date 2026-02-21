@@ -37,11 +37,8 @@ def _build_categories() -> List[CategoryItem]:
     each annotated with a breadcrumb string built from parent chain:
       super-category > category > sub-category
     """
-    # Locate the taxonomy file (project root)
-    taxonomy_path = Path(__file__).resolve().parents[3] / "meesho_subcategory_ids.txt"
-    if not taxonomy_path.exists():
-        # Fallback: look next to backend/
-        taxonomy_path = Path(__file__).resolve().parents[2] / "meesho_subcategory_ids.txt"
+    # Locate the taxonomy file (backend/data/)
+    taxonomy_path = Path(__file__).resolve().parents[2] / "data" / "meesho_subcategory_ids.txt"
     
     if not taxonomy_path.exists():
         logger.error(f"Taxonomy file not found at {taxonomy_path}")
