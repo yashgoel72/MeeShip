@@ -258,7 +258,23 @@ class GptImage15Optimizer:
         size = "1024x1536"
         quality = "low"  # Low quality reduces output tokens by ~66% (1954 → 660)
         n = 1
-        prompt = self._grid_prompt_2x3_compact()  # Compact prompt saves ~794 input tokens (14.6%)
+
+        # Build prompt — inject category context if available
+        base_prompt = self._grid_prompt_2x3_compact()
+        category_fragment = None
+        if pipeline_config:
+            from app.services.category_prompts import get_category_prompt_fragment
+            category_fragment = get_category_prompt_fragment(
+                category_name=pipeline_config.get("category_name"),
+                breadcrumb=pipeline_config.get("category_breadcrumb"),
+            )
+        if category_fragment:
+            # Insert category context between PURPOSE section and GRID REQUIREMENTS
+            parts = base_prompt.split("\n\n⚠️ CRITICAL GRID REQUIREMENTS", 1)
+            prompt = parts[0] + "\n\n" + category_fragment + "\n⚠️ CRITICAL GRID REQUIREMENTS" + parts[1]
+            logger.info("Prompt enriched with category context: %s", pipeline_config.get("category_name", "unknown"))
+        else:
+            prompt = base_prompt
 
         # Preprocess input image for faster uploads (61% smaller file)
         # Note: Image compression doesn't reduce tokens but improves upload speed/bandwidth

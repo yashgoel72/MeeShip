@@ -18,9 +18,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // DEV MODE: Skip Kinde auth and provide mock user with unlimited credits
 const DEV_SKIP_AUTH = import.meta.env.DEV;
 const DEV_USER: User = {
-  id: 'dev-user-123',
-  email: 'dev@test.com',
-  name: 'Dev User',
+  id: 'dev-user-local',
+  email: 'test@local.dev',
+  name: 'Test User',
   trialCount: 999,
   isUpgraded: true,
   credits: 9999,
@@ -131,7 +131,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     
     // Redirect to backend Kinde login endpoint
-    const backendLoginUrl = import.meta.env.VITE_BACKEND_LOGIN_URL || 'http://localhost:8000/api/auth/kinde/login';
+    // Use relative path in production (proxied by Vercel), absolute URL in dev
+    const backendLoginUrl = import.meta.env.DEV 
+      ? 'http://localhost:8000/api/auth/kinde/login'
+      : '/api/auth/kinde/login';
     window.location.href = backendLoginUrl;
   };
 
@@ -148,7 +151,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("jwt");
     
     // Redirect to backend Kinde logout endpoint
-    const backendLogoutUrl = import.meta.env.VITE_BACKEND_LOGOUT_URL || 'http://localhost:8000/api/auth/kinde/logout';
+    // Use relative path in production (proxied by Vercel), absolute URL in dev
+    const backendLogoutUrl = import.meta.env.DEV
+      ? 'http://localhost:8000/api/auth/kinde/logout'
+      : '/api/auth/kinde/logout';
     window.location.href = backendLogoutUrl;
   };
 

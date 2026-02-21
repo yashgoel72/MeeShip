@@ -9,6 +9,16 @@ export type VariantMeta = {
   variant_type: string
   tile_name: string
   variant_label: string
+  shipping_cost?: {
+    shipping_charges: number
+    transfer_price: number
+    selling_price: number
+    duplicate_pid?: number | null
+  }
+  shipping_error?: {
+    error_code: 'SESSION_EXPIRED' | 'NOT_LINKED' | string
+    message: string
+  }
 }
 
 export type OptimizeResult = {
@@ -63,6 +73,11 @@ type AppState = {
   downloadState: 'idle' | 'downloading' | 'saved'
   error: string | null
 
+  // Selected product category
+  sscatId: number | null
+  sscatName: string | null
+  sscatBreadcrumb: string | null
+
   // Streaming state
   streamingProgress: StreamingProgress
 
@@ -76,6 +91,9 @@ type AppState = {
   setOptimizedPreviewUrl: (url: string | null) => void
   setError: (error: string | null) => void
   setDownloadState: (state: AppState['downloadState']) => void
+
+  // Category actions
+  setCategory: (id: number | null, name: string | null, breadcrumb: string | null) => void
 
   // Streaming actions
   setStreamingProgress: (progress: Partial<StreamingProgress>) => void
@@ -100,6 +118,24 @@ const initialStreamingProgress: StreamingProgress = {
   errors: [],
 }
 
+// Restore persisted category from localStorage
+function loadSavedCategory(): { sscatId: number | null; sscatName: string | null; sscatBreadcrumb: string | null } {
+  try {
+    const raw = localStorage.getItem('meeship_category')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return {
+        sscatId: parsed.id ?? null,
+        sscatName: parsed.name ?? null,
+        sscatBreadcrumb: parsed.breadcrumb ?? null,
+      }
+    }
+  } catch { /* ignore */ }
+  return { sscatId: null, sscatName: null, sscatBreadcrumb: null }
+}
+
+const savedCategory = loadSavedCategory()
+
 export const useAppStore = create<AppState>((set, get) => ({
   screen: 'landing',
 
@@ -115,6 +151,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   downloadState: 'idle',
   error: null,
+
+  sscatId: savedCategory.sscatId,
+  sscatName: savedCategory.sscatName,
+  sscatBreadcrumb: savedCategory.sscatBreadcrumb,
 
   streamingProgress: initialStreamingProgress,
 
@@ -181,6 +221,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   setError: (error) => set({ error, isSubmitting: false }),
 
   setDownloadState: (state) => set({ downloadState: state }),
+
+  // === Category actions ===
+
+  setCategory: (id, name, breadcrumb) => {
+    set({ sscatId: id, sscatName: name, sscatBreadcrumb: breadcrumb })
+    // Persist to localStorage so user doesn't re-select every session
+    if (id !== null) {
+      localStorage.setItem('meeship_category', JSON.stringify({ id, name, breadcrumb }))
+    } else {
+      localStorage.removeItem('meeship_category')
+    }
+  },
 
   // === Streaming actions ===
 

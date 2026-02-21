@@ -51,6 +51,16 @@ export type StreamingVariant = {
   completed: number;
   total: number;
   progress: number;
+  shipping_cost?: {
+    shipping_charges: number;
+    transfer_price: number;
+    selling_price: number;
+    duplicate_pid?: number | null;
+  };
+  shipping_error?: {
+    error_code: string;
+    message: string;
+  };
 };
 
 export type StreamingStatus = {

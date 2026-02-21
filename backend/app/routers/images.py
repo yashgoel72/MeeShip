@@ -43,6 +43,7 @@ except Exception:
 from app.config import get_settings
 from app.services.trial_service import is_trial_upload_allowed
 from app.middlewares.auth import get_current_user, get_current_user_optional
+from app.services.meesho_service import MeeshoService
 
 router = APIRouter(prefix="/api/images", tags=["Images"])
 logger = logging.getLogger(__name__)
@@ -553,6 +554,10 @@ async def optimize_image_stream(
     actual_weight_g: Optional[float] = Form(None),
     dimensions_cm: Optional[str] = Form(None),
     prompt_variant: Optional[str] = Form(None),
+    selling_price: Optional[int] = Form(299),
+    sscat_id: Optional[int] = Form(None),
+    sscat_name: Optional[str] = Form(None),
+    sscat_breadcrumb: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     minio_enabled: bool = Depends(get_minio_enabled),
     current_user=Depends(get_current_user_optional),
@@ -561,7 +566,7 @@ async def optimize_image_stream(
     
     Returns SSE events:
     - status: {stage: "generating"|"processing"|"uploading", progress: 0-100, message: str}
-    - variant: {index: int, tile_index: int, variant_type: str, url: str, tile_name: str, variant_label: str}
+    - variant: {index: int, tile_index: int, variant_type: str, url: str, tile_name: str, variant_label: str, shipping_cost?: {...}}
     - error: {message: str, recoverable: bool}
     - complete: {total: int, successful: int, failed: int}
     """
@@ -608,6 +613,35 @@ async def optimize_image_stream(
         original_url = None
         metrics = {}
         
+        # Get shipping cost once for all variants (same selling price)
+        shipping_cost_data = None
+        meesho_service = None
+        meesho_linked = False
+        
+        if current_user:
+            try:
+                meesho_service = MeeshoService(db)
+                meesho_linked = meesho_service.is_linked(current_user)
+                logger.info(f"Meesho linked check: {meesho_linked} (supplier_id={current_user.meesho_supplier_id}, identifier={current_user.meesho_identifier}, has_sid={bool(current_user.meesho_connect_sid_encrypted)})")
+                if meesho_linked:
+                    # Get base shipping cost (will be refined per-variant with image)
+                    logger.info(f"Fetching base shipping cost for price={selling_price or 299}, sscat_id={sscat_id}")
+                    base_sscat = sscat_id or 12435
+                    result = await meesho_service.get_shipping_cost(
+                        user=current_user,
+                        price=selling_price or 299,
+                        sscat_id=base_sscat
+                    )
+                    logger.info(f"Base shipping result: success={result.success}, shipping={result.shipping_charges}, error={result.error}")
+                    if result.success:
+                        shipping_cost_data = {
+                            "shipping_charges": result.shipping_charges,
+                            "transfer_price": result.transfer_price,
+                            "selling_price": result.price,
+                        }
+            except Exception as e:
+                logger.warning(f"Failed to get shipping cost: {e}", exc_info=True)
+        
         try:
             # === Stage 1: Generate grid with GPT ===
             yield {
@@ -637,6 +671,10 @@ async def optimize_image_stream(
                 pipeline_config = {}
                 if prompt_variant:
                     pipeline_config["prompt_variant"] = prompt_variant
+                if sscat_name:
+                    pipeline_config["category_name"] = sscat_name
+                if sscat_breadcrumb:
+                    pipeline_config["category_breadcrumb"] = sscat_breadcrumb
                 
                 optimized_bytes, metrics = await gpt.optimize_image(
                     image_bytes=image_bytes,
@@ -733,6 +771,41 @@ async def optimize_image_stream(
                     variant_img = PILImage.open(io.BytesIO(variant_bytes)).convert("RGB")
                     final_bytes = encode_variant_jpeg(variant_img, output_size=1200)
                     
+                    # Get shipping cost for EVERY variant image (30 calls total)
+                    variant_shipping_cost = None
+                    shipping_error_code = None
+                    if meesho_linked and meesho_service and current_user:
+                        try:
+                            logger.info(f"Getting shipping for tile {info.tile_index}, variant {info.variant_index}...")
+                            result = await meesho_service.get_shipping_cost_for_image(
+                                user=current_user,
+                                image_bytes=final_bytes,
+                                price=selling_price or 299,
+                                sscat_id=sscat_id or 12435,
+                                filename=f"variant_{info.tile_index}_{info.variant_index}.jpg"
+                            )
+                            logger.info(f"Shipping API result: success={result.success}, shipping={result.shipping_charges}, duplicate_pid={result.duplicate_pid}, error={result.error}")
+                            if result.success:
+                                variant_shipping_cost = {
+                                    "shipping_charges": result.shipping_charges,
+                                    "transfer_price": result.transfer_price,
+                                    "selling_price": result.price,
+                                    "duplicate_pid": result.duplicate_pid,
+                                }
+                                logger.info(f"Tile {info.tile_index} v{info.variant_index} shipping: ₹{result.shipping_charges}")
+                            elif result.error_code:
+                                # Capture error code for frontend to handle (e.g., SESSION_EXPIRED)
+                                shipping_error_code = result.error_code
+                                logger.warning(f"Shipping API error for tile {info.tile_index}: {result.error_code} - {result.error}")
+                                if result.error_code == "SESSION_EXPIRED":
+                                    # Stop making further Meesho API calls this run
+                                    meesho_linked = False
+                                    logger.warning("Session expired — disabling Meesho shipping for remaining variants")
+                        except Exception as e:
+                            logger.warning(f"Failed to get shipping for variant {info.global_index}: {e}", exc_info=True)
+                    else:
+                        logger.debug(f"Skipping shipping for tile {info.tile_index}, variant {info.variant_index} (meesho_linked={meesho_linked}, has_service={meesho_service is not None})")
+                    
                     # Upload variant
                     if minio_enabled:
                         variant_id = uuid.uuid4().hex[:8]
@@ -748,20 +821,35 @@ async def optimize_image_stream(
                         successful_variants += 1
                         progress = 20 + int((successful_variants / total_variants) * 75)
                         
+                        # Build variant event data
+                        variant_event_data = {
+                            "index": info.global_index,
+                            "tile_index": info.tile_index,
+                            "variant_index": info.variant_index,
+                            "variant_type": info.variant_type.value,
+                            "url": variant_url,
+                            "tile_name": info.tile_name,
+                            "variant_label": info.variant_label,
+                            "completed": successful_variants,
+                            "total": total_variants,
+                            "progress": progress,
+                        }
+                        
+                        # Add shipping cost - use per-variant if available, otherwise base cost
+                        if variant_shipping_cost:
+                            variant_event_data["shipping_cost"] = variant_shipping_cost
+                        elif shipping_cost_data:
+                            variant_event_data["shipping_cost"] = shipping_cost_data
+                        elif shipping_error_code:
+                            # Include error info so frontend can show re-link prompt
+                            variant_event_data["shipping_error"] = {
+                                "error_code": shipping_error_code,
+                                "message": "Session expired" if shipping_error_code == "SESSION_EXPIRED" else "Unable to fetch shipping"
+                            }
+                        
                         yield {
                             "event": "variant",
-                            "data": json.dumps({
-                                "index": info.global_index,
-                                "tile_index": info.tile_index,
-                                "variant_index": info.variant_index,
-                                "variant_type": info.variant_type.value,
-                                "url": variant_url,
-                                "tile_name": info.tile_name,
-                                "variant_label": info.variant_label,
-                                "completed": successful_variants,
-                                "total": total_variants,
-                                "progress": progress,
-                            })
+                            "data": json.dumps(variant_event_data)
                         }
                 except Exception as e:
                     failed_variants += 1

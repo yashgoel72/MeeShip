@@ -36,7 +36,7 @@ export default function ProcessingOverlay({ originalUrl, optimizedUrl }: Props) 
             <div className="flex items-center gap-4">
               <Spinner />
               <div className="flex-1">
-                <div className="text-xl font-bold text-slate-900">Optimizing Your Product</div>
+                <div className="text-xl font-bold text-slate-900">Finding Your Cheapest Shipping</div>
                 <div className="mt-0.5 text-sm text-slate-500">Making it ship cheaper...</div>
               </div>
               <div className="hidden sm:flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-slate-100">

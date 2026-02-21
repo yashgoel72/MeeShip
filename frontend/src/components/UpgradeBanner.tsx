@@ -35,13 +35,13 @@ export default function UpgradeBanner({ credits, expiresAt }: UpgradeBannerProps
   let urgency: 'low' | 'medium' | 'high' = 'low'
 
   if (credits === 0 || isExpired) {
-    message = 'You have no credits remaining. Buy a pack to continue optimizing images.'
+    message = 'You have no credits remaining. Buy a pack to continue saving on shipping.'
     urgency = 'high'
   } else if (hasLowCredits && isExpiringSoon) {
     message = `Only ${credits} credits left, expiring in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}!`
     urgency = 'high'
   } else if (hasLowCredits) {
-    message = `You have ${credits} credits remaining. Top up to keep optimizing!`
+    message = `You have ${credits} credits remaining. Top up to keep saving!`
     urgency = 'medium'
   } else if (isExpiringSoon) {
     message = `Your credits expire in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}. Use them or buy more!`
@@ -87,7 +87,7 @@ export default function UpgradeBanner({ credits, expiresAt }: UpgradeBannerProps
 
         {/* Pricing hint */}
         <div className={`mt-2 text-xs ${textColor} opacity-80`}>
-          Starting at ₹99 for 10 images • No subscription required
+          Starting at ₹99 — save on thousands of orders
         </div>
       </div>
 

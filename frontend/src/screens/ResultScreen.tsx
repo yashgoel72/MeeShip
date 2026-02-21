@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import PaymentModal from '../components/PaymentModal'
+import ShippingCostBadge from '../components/ShippingCostBadge'
+import SessionExpiredAlert from '../components/SessionExpiredAlert'
+import MeeshoLinkModal from '../components/MeeshoLinkModal'
 import { useAppStore, VariantMeta } from '../stores/appStore'
 import { proxyMinioUrl } from '../utils/minioProxy.ts'
+
+// Re-export store selectors used on this page
+const useSscatName = () => useAppStore((s) => s.sscatName)
+const useSscatBreadcrumb = () => useAppStore((s) => s.sscatBreadcrumb)
 import { trackEvent } from '../utils/posthog.ts'
 import { useAuth } from '../context/AuthContext'
 
@@ -15,16 +22,6 @@ const TILE_NAMES = [
   'In-Use Lifestyle',
   'Styled Scene',
 ]
-
-// Tile metadata for sections
-const TILE_META: Record<number, { section: 'shipping' | 'lifestyle'; tip: string }> = {
-  0: { section: 'shipping', tip: 'Best for: Main listing image' },
-  1: { section: 'shipping', tip: 'Best for: Flat lay size reference' },
-  2: { section: 'shipping', tip: 'Best for: Detail visibility' },
-  3: { section: 'shipping', tip: 'Best for: Premium brand feel' },
-  4: { section: 'lifestyle', tip: 'Best for: Social media & ads' },
-  5: { section: 'lifestyle', tip: 'Best for: Instagram & catalog' },
-}
 
 function ConfettiBurst() {
   const pieces = Array.from({ length: 18 }).map((_, i) => i)
@@ -45,16 +42,6 @@ function ConfettiBurst() {
             transition={{ duration: 0.9, ease: 'easeOut' }}
           />
         ))}
-      </div>
-    </div>
-  )
-}
-
-function SkeletonVariant() {
-  return (
-    <div className="aspect-square animate-pulse rounded-2xl bg-slate-100 ring-1 ring-slate-200">
-      <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-2 border-slate-300 border-t-meesho animate-spin" />
       </div>
     </div>
   )
@@ -90,7 +77,8 @@ export default function ResultScreen() {
   const [confetti, setConfetti] = useState(true)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [downloadingAll, setDownloadingAll] = useState(false)
-  const [expandedTile, setExpandedTile] = useState<number | null>(null)
+  const [showMeeshoModal, setShowMeeshoModal] = useState(false)
+  const [meeshoRefreshKey, setMeeshoRefreshKey] = useState(0)
 
   // Warn user before leaving page (refresh/close) - results will be lost
   useEffect(() => {
@@ -121,7 +109,7 @@ export default function ResultScreen() {
   }
 
   // Use detailed variants if available, otherwise fall back to flat URLs
-  const variants = useMemo(() => {
+  const variants: VariantMeta[] = useMemo(() => {
     if (result?.variants && result.variants.length > 0) {
       return result.variants.map((v) => ({
         ...v,
@@ -146,18 +134,44 @@ export default function ResultScreen() {
         variant_type: variantTypes[variantIdx],
         tile_name: TILE_NAMES[tileIdx] || `Tile ${tileIdx + 1}`,
         variant_label: variantLabels[variantIdx],
-      }
+      } as VariantMeta
     })
   }, [result?.variants, result?.variant_blob_urls])
 
-  // Group variants by tile
-  const variantsByTile = useMemo(() => {
-    const groups: Map<number, VariantMeta[]> = new Map()
-    variants.forEach((v) => {
-      const existing = groups.get(v.tile_index) || []
-      groups.set(v.tile_index, [...existing, v])
+  // Stable random seeds per variant — assigned once, survives re-renders so
+  // the order stays consistent as shipping costs stream in.
+  const randSeeds = useRef<Map<string, number>>(new Map())
+
+  // Compute shipping summary: all variants with shipping cost data (sorted by lowest)
+  const shippingSummary = useMemo(() => {
+    const withShipping = variants.filter((v) => v.shipping_cost != null)
+    const hasSessionExpired = variants.some((v) => v.shipping_error?.error_code === 'SESSION_EXPIRED')
+    if (withShipping.length === 0) return { hasData: false, hasSessionExpired, count: 0, totalChecked: variants.length, min: 0, max: 0, sellingPrice: 0, top10: [] as typeof variants }
+    const charges = withShipping.map((v) => v.shipping_cost!.shipping_charges)
+    // Assign a stable random seed to each variant (only once per key)
+    for (const v of withShipping) {
+      const key = `${v.tile_index}-${v.variant_index}`
+      if (!randSeeds.current.has(key)) {
+        randSeeds.current.set(key, Math.random())
+      }
+    }
+    const sorted = [...withShipping].sort((a, b) => {
+      const diff = a.shipping_cost!.shipping_charges - b.shipping_cost!.shipping_charges
+      if (diff !== 0) return diff
+      // Same cost → random tiebreaker so same-style images don't cluster
+      return randSeeds.current.get(`${a.tile_index}-${a.variant_index}`)!
+           - randSeeds.current.get(`${b.tile_index}-${b.variant_index}`)!
     })
-    return groups
+    return {
+      hasData: true,
+      hasSessionExpired,
+      count: withShipping.length,
+      totalChecked: variants.length,
+      min: Math.min(...charges),
+      max: Math.max(...charges),
+      sellingPrice: withShipping[0].shipping_cost!.selling_price,
+      top10: sorted.slice(0, 10),
+    }
   }, [variants])
 
   const isStreaming = streamingProgress.stage !== 'idle' && streamingProgress.stage !== 'complete' && streamingProgress.stage !== 'error'
@@ -219,6 +233,14 @@ export default function ResultScreen() {
     <div className="min-h-screen bg-offwhite">
       {confetti && !isStreaming && <ConfettiBurst />}
       <PaymentModal open={paymentOpen} onClose={() => setPaymentOpen(false)} />
+      <MeeshoLinkModal 
+        open={showMeeshoModal} 
+        onClose={() => setShowMeeshoModal(false)}
+        onSuccess={() => {
+          setShowMeeshoModal(false)
+          setMeeshoRefreshKey(k => k + 1)
+        }}
+      />
 
       <div className="mx-auto max-w-5xl px-4 pt-8">
         <button
@@ -237,10 +259,23 @@ export default function ResultScreen() {
           onAnimationComplete={() => setConfetti(false)}
         >
           {isStreaming 
-            ? `Generating your ${totalExpected} shipping-optimized images...`
-            : `Your ${completed} shipping-optimized images are ready!`
+            ? 'Finding your lowest shipping cost...'
+            : '✅ Your shipping-optimized images are ready!'
           }
         </motion.div>
+
+        {/* Selected product category */}
+        {useSscatName() && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+              <span className="text-sm">🏷️</span>
+              {useSscatName()}
+            </span>
+            {useSscatBreadcrumb() && (
+              <span className="text-xs text-slate-400">{useSscatBreadcrumb()}</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mx-auto w-full max-w-5xl px-4 pb-32">
@@ -255,260 +290,208 @@ export default function ResultScreen() {
           </div>
         )}
 
-        <div className="mt-6 rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-lg font-bold text-slate-900">
-                {isStreaming ? `${completed} of ${totalExpected} Variants` : `${completed} Variants Ready`}
+        {/* 🏅 Lowest Shipping Achievement */}
+        {!isStreaming && shippingSummary.hasData && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            className="mt-6 rounded-2xl bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 p-4 ring-1 ring-amber-200"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 shadow-md">
+                <span className="text-xl">🏅</span>
               </div>
-              <div className="mt-1 text-sm text-slate-500">
-                {isStreaming 
-                  ? streamingProgress.message || 'Generating variants...'
-                  : '6 tile styles × 5 variants each'
-                }
+              <div>
+                <div className="text-sm font-bold text-amber-900">
+                  Lowest shipping found: <span className="text-lg text-emerald-700">₹{shippingSummary.min}</span>
+                </div>
+                <div className="text-xs text-amber-700">
+                  {shippingSummary.max - shippingSummary.min > 0
+                    ? `You save ₹${shippingSummary.max - shippingSummary.min} per order vs the highest variant • `
+                    : ''}
+                  {shippingSummary.count} of {shippingSummary.totalChecked} images checked
+                </div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={downloadAll}
-              disabled={downloadingAll || downloadState === 'downloading' || variants.length === 0}
-              className="hidden sm:flex items-center gap-2 rounded-xl bg-meesho px-4 py-2.5 text-sm font-semibold text-white hover:bg-meesho/90 transition-colors disabled:opacity-60"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              {downloadingAll ? 'Downloading...' : `Download All ${variants.length}`}
-            </button>
-          </div>
-        </div>
+          </motion.div>
+        )}
 
-        {/* SECTION 1: Shipping-Optimized Images */}
-        <div className="mt-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center gap-2 rounded-full bg-blue-100 px-4 py-2">
-              <span className="text-lg">🚚</span>
-              <span className="font-semibold text-blue-800">Shipping-Optimized</span>
-            </div>
-            <span className="text-sm text-slate-500">Clean backgrounds for accurate shipping estimates</span>
+        {/* Session Expired Alert */}
+        {!isStreaming && shippingSummary.hasSessionExpired && (
+          <div className="mt-6">
+            <SessionExpiredAlert
+              onRelinkClick={() => setShowMeeshoModal(true)}
+              message="Your Meesho session expired while generating images. Re-link to see shipping costs."
+            />
           </div>
-          
-          <div className="rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
-            <div className="space-y-4">
-              {[0, 1, 2, 3].map((tileIdx) => {
-                const tileVariants = variantsByTile.get(tileIdx) || []
-                const tileName = TILE_NAMES[tileIdx]
-                const tileMeta = TILE_META[tileIdx]
-                const isExpanded = expandedTile === tileIdx
-                const expectedVariants = 5
-                const pendingCount = Math.max(0, expectedVariants - tileVariants.length)
-                
-                if (tileVariants.length === 0 && !isStreaming) return null
-              
-                return (
-                  <div key={tileIdx} className="rounded-2xl ring-1 ring-slate-200 overflow-hidden">
-                    {/* Tile header */}
-                    <button
-                      type="button"
-                      onClick={() => setExpandedTile(isExpanded ? null : tileIdx)}
-                      className="w-full flex items-center justify-between p-4 bg-blue-50/50 hover:bg-blue-50 transition-colors"
+        )}
+
+        {/* Link Meesho CTA if no shipping data and no error */}
+        {!isStreaming && variants.length > 0 && !shippingSummary.hasData && !shippingSummary.hasSessionExpired && (
+          <div className="mt-6" key={meeshoRefreshKey}>
+            <ShippingCostBadge
+              sellingPrice={299}
+              onLinkClick={() => setShowMeeshoModal(true)}
+            />
+          </div>
+        )}
+
+        {/* ★ TOP 10 Lowest Shipping Cost Images — only verified (with duplicate_pid) */}
+        {!isStreaming && shippingSummary.top10.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 rounded-full bg-amber-100 px-4 py-2">
+                  <span className="text-lg">🏆</span>
+                  <span className="font-semibold text-amber-800">Top {shippingSummary.top10.length} Lowest Shipping</span>
+                </div>
+                <span className="text-sm text-slate-500">{shippingSummary.count} of {shippingSummary.totalChecked} images checked</span>
+              </div>
+              <button
+                type="button"
+                onClick={downloadAll}
+                disabled={downloadingAll || downloadState === 'downloading'}
+                className="hidden sm:flex items-center gap-2 rounded-xl bg-meesho px-4 py-2.5 text-sm font-semibold text-white hover:bg-meesho/90 transition-colors disabled:opacity-60"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {downloadingAll ? 'Downloading...' : `Download All ${shippingSummary.top10.length}`}
+              </button>
+            </div>
+
+            <div className="rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                {shippingSummary.top10.map((v, rank) => {
+                  const badgeColor = rank === 0 ? 'bg-amber-400 text-amber-900' : rank === 1 ? 'bg-slate-300 text-slate-800' : rank === 2 ? 'bg-orange-300 text-orange-900' : 'bg-slate-100 text-slate-700'
+                  return (
+                    <motion.div
+                      key={`top-${v.tile_index}-${v.variant_index}`}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: rank * 0.04 }}
+                      className="group relative aspect-square overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-200 hover:ring-amber-400 hover:ring-2 transition-all"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold text-sm">
-                          {tileIdx + 1}
-                        </div>
-                        <div className="text-left">
-                          <div className="font-semibold text-slate-900">{tileName}</div>
-                          <div className="text-xs text-slate-500">
-                            {tileMeta.tip} • {tileVariants.length}/{expectedVariants} variants
-                          </div>
-                        </div>
+                      <img src={v.url} alt={v.variant_label} className="h-full w-full object-cover" />
+                      {/* Rank badge */}
+                      <div className={`absolute top-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold shadow ${badgeColor}`}>
+                        {rank + 1}
                       </div>
-                      <div className="flex items-center gap-2">
-                        {tileVariants.length > 0 && (
-                          <div className="flex -space-x-2">
-                            {tileVariants.slice(0, 3).map((v, i) => (
-                              <img 
-                                key={i} 
-                                src={v.url} 
-                                alt="" 
-                                className="w-8 h-8 rounded-lg ring-2 ring-white object-cover"
-                              />
-                            ))}
-                            {tileVariants.length > 3 && (
-                              <div className="w-8 h-8 rounded-lg ring-2 ring-white bg-slate-200 flex items-center justify-center text-xs font-medium text-slate-600">
-                                +{tileVariants.length - 3}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <svg 
-                          className={`h-5 w-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                          fill="none" 
-                          viewBox="0 0 24 24" 
-                          stroke="currentColor" 
-                          strokeWidth={2}
+                      {/* Variant label */}
+                      <div className="absolute top-1.5 right-1.5 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white">
+                        {v.variant_label}
+                      </div>
+                      {/* Shipping cost */}
+                      <div className="absolute bottom-1 left-1 rounded-md bg-emerald-500/90 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                        🚚 ₹{v.shipping_cost!.shipping_charges}
+                      </div>
+                      {/* Tile label */}
+                      <div className="absolute bottom-1 right-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white">
+                        {v.tile_name}
+                      </div>
+                      {/* Hover download overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 group-hover:bg-black/30 group-hover:opacity-100 transition-all">
+                        <button
+                          type="button"
+                          onClick={() => download(v.url, `meeship_top${rank + 1}_${v.tile_name.replace(/\s+/g, '_')}_${v.variant_label.replace(/\s+/g, '_')}.jpg`)}
+                          disabled={downloadState === 'downloading'}
+                          className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-lg hover:bg-slate-50 transition-colors disabled:opacity-60"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Download
+                        </button>
                       </div>
-                    </button>
-                    
-                    {/* Expanded variant grid */}
-                    {isExpanded && (
-                      <div className="p-4 border-t border-slate-200">
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
-                          {tileVariants.map((v, idx) => (
-                            <motion.div
-                              key={`${v.tile_index}-${v.variant_index}`}
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: idx * 0.05 }}
-                              className="group relative aspect-square overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-200 hover:ring-blue-500 hover:ring-2 transition-all"
-                            >
-                              <img src={v.url} alt={v.variant_label} className="h-full w-full object-cover" />
-                              {/* Hover overlay with download */}
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 group-hover:bg-black/30 group-hover:opacity-100 transition-all">
-                                <button
-                                  type="button"
-                                  onClick={() => download(v.url, `meeship_${tileName.replace(/\s+/g, '_')}_${v.variant_label.replace(/\s+/g, '_')}.jpg`)}
-                                  disabled={downloadState === 'downloading'}
-                                  className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-lg hover:bg-slate-50 transition-colors disabled:opacity-60"
-                                >
-                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                  </svg>
-                                  Download
-                                </button>
-                              </div>
-                            </motion.div>
-                          ))}
-                          {/* Skeleton loaders for pending variants */}
-                          {isStreaming && Array.from({ length: pendingCount }).map((_, i) => (
-                            <SkeletonVariant key={`skeleton-${tileIdx}-${i}`} />
-                          ))}
-                        </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fallback: show ALL variants when no verified shipping data (Meesho not linked or per-variant failed) */}
+        {!isStreaming && variants.length > 0 && shippingSummary.top10.length === 0 && (
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 rounded-full bg-blue-100 px-4 py-2">
+                  <span className="text-lg">🖼️</span>
+                  <span className="font-semibold text-blue-800">All {variants.length} Generated Images</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={downloadAll}
+                disabled={downloadingAll || downloadState === 'downloading'}
+                className="hidden sm:flex items-center gap-2 rounded-xl bg-meesho px-4 py-2.5 text-sm font-semibold text-white hover:bg-meesho/90 transition-colors disabled:opacity-60"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {downloadingAll ? 'Downloading...' : `Download All ${variants.length}`}
+              </button>
+            </div>
+
+            <div className="rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                {variants.map((v, idx) => (
+                  <motion.div
+                    key={`all-${v.tile_index}-${v.variant_index}`}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.02 }}
+                    className="group relative aspect-square overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-200 hover:ring-blue-400 hover:ring-2 transition-all"
+                  >
+                    <img src={v.url} alt={v.variant_label} className="h-full w-full object-cover" />
+                    {/* Variant label */}
+                    <div className="absolute top-1.5 left-1.5 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white">
+                      {v.variant_label}
+                    </div>
+                    {/* Shipping cost if available (base rate) */}
+                    {v.shipping_cost && (
+                      <div className="absolute bottom-1 left-1 rounded-md bg-emerald-500/90 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                        🚚 ₹{v.shipping_cost.shipping_charges}
                       </div>
                     )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 2: Lifestyle & Marketing Images */}
-        <div className="mt-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center gap-2 rounded-full bg-purple-100 px-4 py-2">
-              <span className="text-lg">✨</span>
-              <span className="font-semibold text-purple-800">Lifestyle & Marketing</span>
-            </div>
-            <span className="text-sm text-slate-500">Engaging images for ads and social media</span>
-          </div>
-          
-          <div className="rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
-            <div className="space-y-4">
-              {[4, 5].map((tileIdx) => {
-                const tileVariants = variantsByTile.get(tileIdx) || []
-                const tileName = TILE_NAMES[tileIdx]
-                const tileMeta = TILE_META[tileIdx]
-                const isExpanded = expandedTile === tileIdx
-                const expectedVariants = 5
-                const pendingCount = Math.max(0, expectedVariants - tileVariants.length)
-                
-                if (tileVariants.length === 0 && !isStreaming) return null
-              
-                return (
-                  <div key={tileIdx} className="rounded-2xl ring-1 ring-slate-200 overflow-hidden">
-                    {/* Tile header */}
-                    <button
-                      type="button"
-                      onClick={() => setExpandedTile(isExpanded ? null : tileIdx)}
-                      className="w-full flex items-center justify-between p-4 bg-purple-50/50 hover:bg-purple-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 text-purple-700 font-bold text-sm">
-                          {tileIdx + 1}
-                        </div>
-                        <div className="text-left">
-                          <div className="font-semibold text-slate-900">{tileName}</div>
-                          <div className="text-xs text-slate-500">
-                            {tileMeta.tip} • {tileVariants.length}/{expectedVariants} variants
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {tileVariants.length > 0 && (
-                          <div className="flex -space-x-2">
-                            {tileVariants.slice(0, 3).map((v, i) => (
-                              <img 
-                                key={i} 
-                                src={v.url} 
-                                alt="" 
-                                className="w-8 h-8 rounded-lg ring-2 ring-white object-cover"
-                              />
-                            ))}
-                            {tileVariants.length > 3 && (
-                              <div className="w-8 h-8 rounded-lg ring-2 ring-white bg-slate-200 flex items-center justify-center text-xs font-medium text-slate-600">
-                                +{tileVariants.length - 3}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <svg 
-                          className={`h-5 w-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                          fill="none" 
-                          viewBox="0 0 24 24" 
-                          stroke="currentColor" 
-                          strokeWidth={2}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    {/* Tile label */}
+                    <div className="absolute bottom-1 right-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white">
+                      {v.tile_name}
+                    </div>
+                    {/* Hover download overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 group-hover:bg-black/30 group-hover:opacity-100 transition-all">
+                      <button
+                        type="button"
+                        onClick={() => download(v.url, `meeship_${v.tile_name.replace(/\s+/g, '_')}_${v.variant_label.replace(/\s+/g, '_')}.jpg`)}
+                        disabled={downloadState === 'downloading'}
+                        className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-lg hover:bg-slate-50 transition-colors disabled:opacity-60"
+                      >
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                      </div>
-                    </button>
-                    
-                    {/* Expanded variant grid */}
-                    {isExpanded && (
-                      <div className="p-4 border-t border-slate-200">
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
-                          {tileVariants.map((v, idx) => (
-                            <motion.div
-                              key={`${v.tile_index}-${v.variant_index}`}
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: idx * 0.05 }}
-                              className="group relative aspect-square overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-200 hover:ring-purple-500 hover:ring-2 transition-all"
-                            >
-                              <img src={v.url} alt={v.variant_label} className="h-full w-full object-cover" />
-                              {/* Hover overlay with download */}
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 group-hover:bg-black/30 group-hover:opacity-100 transition-all">
-                                <button
-                                  type="button"
-                                  onClick={() => download(v.url, `meeship_${tileName.replace(/\s+/g, '_')}_${v.variant_label.replace(/\s+/g, '_')}.jpg`)}
-                                  disabled={downloadState === 'downloading'}
-                                  className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-lg hover:bg-slate-50 transition-colors disabled:opacity-60"
-                                >
-                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                  </svg>
-                                  Download
-                                </button>
-                              </div>
-                            </motion.div>
-                          ))}
-                          {/* Skeleton loaders for pending variants */}
-                          {isStreaming && Array.from({ length: pendingCount }).map((_, i) => (
-                            <SkeletonVariant key={`skeleton-${tileIdx}-${i}`} />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+                        Download
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Streaming progress — show while generating */}
+        {isStreaming && (
+          <div className="mt-6 rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+            <div className="text-lg font-bold text-slate-900">
+              {completed} of {totalExpected} Variants
+            </div>
+            <div className="mt-1 text-sm text-slate-500">
+              {streamingProgress.message || 'Generating variants...'}
+            </div>
+          </div>
+        )}
 
         {/* Tips section */}
         <div className="mt-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-4 ring-1 ring-emerald-100">
@@ -545,7 +528,7 @@ export default function ResultScreen() {
                   </div>
                   <div>
                     <div className="text-lg font-bold">{user.credits} credits remaining</div>
-                    <div className="text-sm text-white/70">1 credit = 1 image generation</div>
+                    <div className="text-sm text-white/70">1 credit = 1 product optimized</div>
                   </div>
                 </div>
                 <button
@@ -563,7 +546,7 @@ export default function ResultScreen() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-lg font-bold">Get more credits</div>
-                  <div className="text-sm text-white/80">Starting at ₹99 for 10 images</div>
+                  <div className="text-sm text-white/80">Starting at ₹99 — save ₹1,000+ on shipping</div>
                 </div>
                 <button
                   type="button"
