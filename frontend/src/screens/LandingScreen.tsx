@@ -5,12 +5,20 @@ import { Dialog } from '@headlessui/react'
 import UploadZone from '../components/UploadZone'
 import UpgradeBanner from '../components/UpgradeBanner'
 import Footer from '../components/Footer'
+import MeeshoLinkModal from '../components/MeeshoLinkModal'
 import { useImageUpload } from '../hooks/useImageUpload'
 import { useStreamingOptimization } from '../hooks/useStreamingOptimization'
 import { useAuth } from '../context/AuthContext'
 import { useAppStore } from '../stores/appStore'
+import { getMeeshoStatus, validateMeeshoSession } from '../services/meeshoApi'
 
-function Header({ onSignIn }: { onSignIn: () => void }) {
+interface HeaderProps {
+  onSignIn: () => void
+  meeshoLinked: boolean | null
+  onMeeshoLinkClick: () => void
+}
+
+function Header({ onSignIn, meeshoLinked, onMeeshoLinkClick }: HeaderProps) {
   const { scrollY } = useScroll()
   const [scrolled, setScrolled] = useState(false)
   const { isAuthenticated, user, logout } = useAuth()
@@ -50,6 +58,23 @@ function Header({ onSignIn }: { onSignIn: () => void }) {
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
+              {/* Meesho Link Status */}
+              {meeshoLinked !== null && (
+                <button
+                  type="button"
+                  onClick={onMeeshoLinkClick}
+                  className={`hidden items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors sm:flex ${
+                    meeshoLinked
+                      ? 'bg-pink-50 text-pink-700 ring-pink-200 hover:bg-pink-100'
+                      : 'bg-gray-50 text-gray-600 ring-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  {meeshoLinked ? 'Meesho ✓' : 'Link Meesho'}
+                </button>
+              )}
               {/* Credit Balance Badge */}
               {typeof user?.credits === 'number' && (
                 <div className="hidden items-center gap-2 sm:flex">
@@ -89,6 +114,7 @@ function Header({ onSignIn }: { onSignIn: () => void }) {
           )}
         </div>
       </div>
+
     </header>
   )
 }
@@ -146,26 +172,78 @@ export default function LandingScreen() {
   const error = useAppStore((s) => s.error)
   const [signInOpen, setSignInOpen] = useState(false)
 
+  // Meesho link state — shared between Header pill and body banner
+  const [meeshoLinked, setMeeshoLinked] = useState<boolean | null>(null)
+  const [meeshoSessionExpired, setMeeshoSessionExpired] = useState(false)
+  const [showMeeshoModal, setShowMeeshoModal] = useState(false)
+
+  // Check Meesho link status + session validity when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setMeeshoLinked(null)
+      setMeeshoSessionExpired(false)
+      return
+    }
+
+    const checkMeesho = async () => {
+      try {
+        const status = await getMeeshoStatus()
+        setMeeshoLinked(status.linked)
+        // If linked, check if session is still valid
+        if (status.linked) {
+          try {
+            const validation = await validateMeeshoSession()
+            if (!validation.valid && validation.error_code === 'SESSION_EXPIRED') {
+              setMeeshoSessionExpired(true)
+            } else {
+              setMeeshoSessionExpired(false)
+            }
+          } catch {
+            // Validation endpoint may not exist yet — treat as valid
+            setMeeshoSessionExpired(false)
+          }
+        }
+      } catch {
+        setMeeshoLinked(false)
+      }
+    }
+
+    checkMeesho()
+  }, [isAuthenticated])
+
+  const handleMeeshoLinkSuccess = () => {
+    setShowMeeshoModal(false)
+    setMeeshoLinked(true)
+    setMeeshoSessionExpired(false)
+  }
+
   const canGenerate = useMemo(() => {
     return !!originalFile && !!compressedFile && !compressing
   }, [compressedFile, compressing, originalFile])
 
+  // Show Meesho banner: not linked, or session expired
+  const showMeeshoBanner = isAuthenticated && meeshoLinked !== null && (!meeshoLinked || meeshoSessionExpired)
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30">
-      <Header onSignIn={() => setSignInOpen(true)} />
+      <Header
+        onSignIn={() => setSignInOpen(true)}
+        meeshoLinked={meeshoLinked}
+        onMeeshoLinkClick={() => setShowMeeshoModal(true)}
+      />
 
       <div className="mx-auto max-w-5xl px-4 pt-24">
         <div className="min-h-[80vh] py-10 sm:py-16">
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-meesho/10 px-4 py-1.5 text-sm font-semibold text-meesho">
               <span className="flex h-2 w-2 animate-pulse rounded-full bg-meesho" />
-              1 Photo → 30 Studio-Quality Images
+              1 Photo → ₹10-20 Saved Per Order
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
               Save <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">₹10-20</span> on Every Meesho Order
             </h1>
             <div className="mt-5 text-lg text-slate-600 sm:text-xl">
-              Upload 1 photo → Get <span className="font-semibold text-slate-900">30 studio-quality images</span> → Lower shipping on every sale
+              Upload 1 photo → We test <span className="font-semibold text-slate-900">30 image variations</span> → Find your cheapest shipping
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -179,6 +257,59 @@ export default function LandingScreen() {
             </div>
           </div>
 
+          {/* Meesho Account Link Banner */}
+          {showMeeshoBanner && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+              className={`mx-auto mt-8 max-w-2xl rounded-2xl p-4 shadow-sm ${
+                meeshoSessionExpired
+                  ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 ring-1 ring-amber-200'
+                  : 'bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 ring-1 ring-pink-200'
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-md ${
+                  meeshoSessionExpired
+                    ? 'bg-gradient-to-br from-amber-400 to-orange-500'
+                    : 'bg-gradient-to-br from-pink-400 to-rose-500'
+                }`}>
+                  <span className="text-xl">{meeshoSessionExpired ? '⚠️' : '🔗'}</span>
+                </div>
+                <div className="flex-1">
+                  <div className={`text-sm font-bold ${
+                    meeshoSessionExpired ? 'text-amber-900' : 'text-pink-900'
+                  }`}>
+                    {meeshoSessionExpired
+                      ? 'Your Meesho session has expired'
+                      : 'Link your Meesho Supplier Account'
+                    }
+                  </div>
+                  <div className={`mt-0.5 text-xs ${
+                    meeshoSessionExpired ? 'text-amber-700' : 'text-pink-700'
+                  }`}>
+                    {meeshoSessionExpired
+                      ? 'Re-link to see real shipping costs for every generated image'
+                      : 'See real Meesho shipping costs for each image — find which ones save you the most!'
+                    }
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMeeshoModal(true)}
+                  className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
+                    meeshoSessionExpired
+                      ? 'bg-amber-500 text-white hover:bg-amber-600'
+                      : 'bg-pink-500 text-white hover:bg-pink-600'
+                  }`}
+                >
+                  {meeshoSessionExpired ? '🔄 Re-link Account' : '🔗 Link Meesho'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           <div className="mt-10">
             <UploadZone
               disabled={false}
@@ -190,7 +321,7 @@ export default function LandingScreen() {
 {/* Outcome-focused benefits - Visual Grid */}
             <div className="mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { icon: '📸', text: '30 studio images', subtext: 'per upload', color: 'from-blue-50 to-indigo-50 ring-blue-100' },
+                { icon: '�', text: '₹10-20 saved', subtext: 'per order', color: 'from-blue-50 to-indigo-50 ring-blue-100' },
                 { icon: '📦', text: 'Lower shipping', subtext: 'slab reduction', color: 'from-emerald-50 to-teal-50 ring-emerald-100' },
                 { icon: '↩️', text: 'Save 2x', subtext: 'on returns', color: 'from-purple-50 to-pink-50 ring-purple-100' },
                 { icon: '⚡', text: '~1 minute', subtext: 'delivery', color: 'from-amber-50 to-orange-50 ring-amber-100' },
@@ -317,7 +448,7 @@ export default function LandingScreen() {
                   ) : (
                     <>
                       <span className="text-xl">⚡</span>
-                      {(user?.credits ?? 0) > 0 ? 'Generate 30 Studio Images' : 'Try Free – Get 30 Images'}
+                      {(user?.credits ?? 0) > 0 ? 'Find My Lowest Shipping' : 'Try Free — See Your Savings'}
                       <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
@@ -397,7 +528,11 @@ export default function LandingScreen() {
       <Footer />
 
       <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
-
+      <MeeshoLinkModal
+        open={showMeeshoModal}
+        onClose={() => setShowMeeshoModal(false)}
+        onSuccess={handleMeeshoLinkSuccess}
+      />
     </div>
   )
 }

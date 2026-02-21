@@ -76,7 +76,7 @@ export default function UploadZone({ disabled, onFileAccepted }: Props) {
           </div>
           
           <div className="text-base font-medium text-slate-700">
-            {isDragActive ? 'Drop to generate 30 images!' : 'Drag your product image here'}
+            {isDragActive ? 'Drop to find your lowest shipping!' : 'Drop your product photo to start saving'}
           </div>
           <div className="mt-1 text-sm text-slate-500">
             or <span className="text-meesho font-medium">click to browse</span>
