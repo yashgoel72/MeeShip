@@ -49,6 +49,12 @@ export interface ShippingCostRequest {
   sscat_id?: number;
 }
 
+export interface CategoryItem {
+  id: number;
+  name: string;
+  breadcrumb: string;
+}
+
 export interface ShippingCostResponse {
   success: boolean;
   price: number;
@@ -134,10 +140,29 @@ export const getShippingCost = async (price: number, imageUrl?: string, sscatId?
     data: {
       price,
       image_url: imageUrl || '',
-      sscat_id: sscatId || 12435,
+      sscat_id: sscatId,
     },
   });
   return response.data;
+};
+
+// ============================================================================
+// Categories
+// ============================================================================
+
+/**
+ * Fetch all Meesho product categories (sub-sub-categories with breadcrumbs).
+ * Result is cached in-memory after the first call.
+ */
+let _categoriesCache: CategoryItem[] | null = null;
+
+export const getCategories = async (): Promise<CategoryItem[]> => {
+  if (_categoriesCache) return _categoriesCache;
+  const response = await apiRequest<CategoryItem[]>('/api/meesho/categories', {
+    method: 'GET',
+  });
+  _categoriesCache = response.data;
+  return _categoriesCache;
 };
 
 // ============================================================================

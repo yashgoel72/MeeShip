@@ -37,6 +37,18 @@ export function useStreamingOptimization() {
         const formData = new FormData()
         formData.append('file', fileToUpload, file.name)
 
+        // Include selected product category for shipping cost + prompt optimization
+        const { sscatId, sscatName, sscatBreadcrumb } = useAppStore.getState()
+        if (sscatId !== null) {
+          formData.append('sscat_id', String(sscatId))
+        }
+        if (sscatName) {
+          formData.append('sscat_name', sscatName)
+        }
+        if (sscatBreadcrumb) {
+          formData.append('sscat_breadcrumb', sscatBreadcrumb)
+        }
+
         // Initialize result state
         setResult({
           id: '',

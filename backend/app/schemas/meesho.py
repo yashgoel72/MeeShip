@@ -35,14 +35,14 @@ class ShippingCostRequest(BaseModel):
     """Request to calculate shipping cost for an image."""
     image_url: str = Field(..., description="URL of the product image")
     price: int = Field(..., ge=1, description="Product price in INR")
-    sscat_id: int = Field(default=12435, description="Sub-category ID (default: 12435)")
+    sscat_id: int = Field(..., description="Sub-category ID for the product")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "image_url": "https://example.com/image.jpg",
                 "price": 200,
-                "sscat_id": 12435
+                "sscat_id": 10000
             }
         }
 

@@ -14,6 +14,7 @@ from app.models.user import User
 from app.middlewares.auth import get_current_user
 from app.services.meesho_service import MeeshoService
 from app.services.meesho_playwright import MeeshoPlaywrightService, SessionStatus
+from app.services.category_service import get_categories
 from app.schemas.meesho import (
     LinkMeeshoRequest,
     LinkMeeshoResponse,
@@ -30,6 +31,17 @@ from app.schemas.meesho import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/meesho", tags=["meesho"])
+
+
+@router.get("/categories")
+async def list_categories():
+    """
+    Return all Meesho product sub-sub-categories with breadcrumb paths.
+
+    No auth required — the taxonomy is public/static data.
+    Response is a flat list of {id, name, breadcrumb} sorted alphabetically.
+    """
+    return get_categories()
 
 
 @router.get("/status", response_model=MeeshoLinkStatus)
