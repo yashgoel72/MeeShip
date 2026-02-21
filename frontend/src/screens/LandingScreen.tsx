@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion, useScroll } from 'framer-motion'
 import { Dialog } from '@headlessui/react'
 import UploadZone from '../components/UploadZone'
+import CategoryPicker from '../components/CategoryPicker'
 import UpgradeBanner from '../components/UpgradeBanner'
 import Footer from '../components/Footer'
 import MeeshoLinkModal from '../components/MeeshoLinkModal'
@@ -169,6 +170,7 @@ export default function LandingScreen() {
   const originalFile = useAppStore((s) => s.originalFile)
   const compressedFile = useAppStore((s) => s.compressedFile)
   const originalPreviewUrl = useAppStore((s) => s.originalPreviewUrl)
+  const sscatId = useAppStore((s) => s.sscatId)
   const error = useAppStore((s) => s.error)
   const [signInOpen, setSignInOpen] = useState(false)
 
@@ -218,8 +220,8 @@ export default function LandingScreen() {
   }
 
   const canGenerate = useMemo(() => {
-    return !!originalFile && !!compressedFile && !compressing
-  }, [compressedFile, compressing, originalFile])
+    return !!originalFile && !!compressedFile && !compressing && sscatId !== null
+  }, [compressedFile, compressing, originalFile, sscatId])
 
   // Show Meesho banner: not linked, or session expired
   const showMeeshoBanner = isAuthenticated && meeshoLinked !== null && (!meeshoLinked || meeshoSessionExpired)
@@ -317,6 +319,11 @@ export default function LandingScreen() {
                 acceptFile(file)
               }}
             />
+
+            {/* Product Category Picker */}
+            <div className="mt-6">
+              <CategoryPicker />
+            </div>
 
 {/* Outcome-focused benefits - Visual Grid */}
             <div className="mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">

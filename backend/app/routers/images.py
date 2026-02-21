@@ -555,6 +555,9 @@ async def optimize_image_stream(
     dimensions_cm: Optional[str] = Form(None),
     prompt_variant: Optional[str] = Form(None),
     selling_price: Optional[int] = Form(299),
+    sscat_id: Optional[int] = Form(None),
+    sscat_name: Optional[str] = Form(None),
+    sscat_breadcrumb: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     minio_enabled: bool = Depends(get_minio_enabled),
     current_user=Depends(get_current_user_optional),
@@ -622,10 +625,12 @@ async def optimize_image_stream(
                 logger.info(f"Meesho linked check: {meesho_linked} (supplier_id={current_user.meesho_supplier_id}, identifier={current_user.meesho_identifier}, has_sid={bool(current_user.meesho_connect_sid_encrypted)})")
                 if meesho_linked:
                     # Get base shipping cost (will be refined per-variant with image)
-                    logger.info(f"Fetching base shipping cost for price={selling_price or 299}")
+                    logger.info(f"Fetching base shipping cost for price={selling_price or 299}, sscat_id={sscat_id}")
+                    base_sscat = sscat_id or 12435
                     result = await meesho_service.get_shipping_cost(
                         user=current_user,
-                        price=selling_price or 299
+                        price=selling_price or 299,
+                        sscat_id=base_sscat
                     )
                     logger.info(f"Base shipping result: success={result.success}, shipping={result.shipping_charges}, error={result.error}")
                     if result.success:
@@ -666,6 +671,10 @@ async def optimize_image_stream(
                 pipeline_config = {}
                 if prompt_variant:
                     pipeline_config["prompt_variant"] = prompt_variant
+                if sscat_name:
+                    pipeline_config["category_name"] = sscat_name
+                if sscat_breadcrumb:
+                    pipeline_config["category_breadcrumb"] = sscat_breadcrumb
                 
                 optimized_bytes, metrics = await gpt.optimize_image(
                     image_bytes=image_bytes,
@@ -772,6 +781,7 @@ async def optimize_image_stream(
                                 user=current_user,
                                 image_bytes=final_bytes,
                                 price=selling_price or 299,
+                                sscat_id=sscat_id or 12435,
                                 filename=f"variant_{info.tile_index}_{info.variant_index}.jpg"
                             )
                             logger.info(f"Shipping API result: success={result.success}, shipping={result.shipping_charges}, duplicate_pid={result.duplicate_pid}, error={result.error}")

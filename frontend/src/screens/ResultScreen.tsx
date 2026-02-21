@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import PaymentModal from '../components/PaymentModal'
 import ShippingCostBadge from '../components/ShippingCostBadge'
@@ -6,6 +6,10 @@ import SessionExpiredAlert from '../components/SessionExpiredAlert'
 import MeeshoLinkModal from '../components/MeeshoLinkModal'
 import { useAppStore, VariantMeta } from '../stores/appStore'
 import { proxyMinioUrl } from '../utils/minioProxy.ts'
+
+// Re-export store selectors used on this page
+const useSscatName = () => useAppStore((s) => s.sscatName)
+const useSscatBreadcrumb = () => useAppStore((s) => s.sscatBreadcrumb)
 import { trackEvent } from '../utils/posthog.ts'
 import { useAuth } from '../context/AuthContext'
 
@@ -134,21 +138,38 @@ export default function ResultScreen() {
     })
   }, [result?.variants, result?.variant_blob_urls])
 
-  // Compute shipping summary: only variants with real duplicate_pid (accurate shipping)
+  // Stable random seeds per variant — assigned once, survives re-renders so
+  // the order stays consistent as shipping costs stream in.
+  const randSeeds = useRef<Map<string, number>>(new Map())
+
+  // Compute shipping summary: all variants with shipping cost data (sorted by lowest)
   const shippingSummary = useMemo(() => {
-    const verified = variants.filter((v) => v.shipping_cost?.duplicate_pid != null)
+    const withShipping = variants.filter((v) => v.shipping_cost != null)
     const hasSessionExpired = variants.some((v) => v.shipping_error?.error_code === 'SESSION_EXPIRED')
-    if (verified.length === 0) return { hasData: false, hasSessionExpired, count: 0, totalChecked: variants.length, min: 0, max: 0, sellingPrice: 0, top10: [] as typeof variants }
-    const charges = verified.map((v) => v.shipping_cost!.shipping_charges)
-    const sorted = [...verified].sort((a, b) => a.shipping_cost!.shipping_charges - b.shipping_cost!.shipping_charges)
+    if (withShipping.length === 0) return { hasData: false, hasSessionExpired, count: 0, totalChecked: variants.length, min: 0, max: 0, sellingPrice: 0, top10: [] as typeof variants }
+    const charges = withShipping.map((v) => v.shipping_cost!.shipping_charges)
+    // Assign a stable random seed to each variant (only once per key)
+    for (const v of withShipping) {
+      const key = `${v.tile_index}-${v.variant_index}`
+      if (!randSeeds.current.has(key)) {
+        randSeeds.current.set(key, Math.random())
+      }
+    }
+    const sorted = [...withShipping].sort((a, b) => {
+      const diff = a.shipping_cost!.shipping_charges - b.shipping_cost!.shipping_charges
+      if (diff !== 0) return diff
+      // Same cost → random tiebreaker so same-style images don't cluster
+      return randSeeds.current.get(`${a.tile_index}-${a.variant_index}`)!
+           - randSeeds.current.get(`${b.tile_index}-${b.variant_index}`)!
+    })
     return {
       hasData: true,
       hasSessionExpired,
-      count: verified.length,
+      count: withShipping.length,
       totalChecked: variants.length,
       min: Math.min(...charges),
       max: Math.max(...charges),
-      sellingPrice: verified[0].shipping_cost!.selling_price,
+      sellingPrice: withShipping[0].shipping_cost!.selling_price,
       top10: sorted.slice(0, 10),
     }
   }, [variants])
@@ -242,6 +263,19 @@ export default function ResultScreen() {
             : '✅ Your shipping-optimized images are ready!'
           }
         </motion.div>
+
+        {/* Selected product category */}
+        {useSscatName() && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+              <span className="text-sm">🏷️</span>
+              {useSscatName()}
+            </span>
+            {useSscatBreadcrumb() && (
+              <span className="text-xs text-slate-400">{useSscatBreadcrumb()}</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mx-auto w-full max-w-5xl px-4 pb-32">
@@ -276,7 +310,7 @@ export default function ResultScreen() {
                   {shippingSummary.max - shippingSummary.min > 0
                     ? `You save ₹${shippingSummary.max - shippingSummary.min} per order vs the highest variant • `
                     : ''}
-                  {shippingSummary.count} of {shippingSummary.totalChecked} images matched by Meesho
+                  {shippingSummary.count} of {shippingSummary.totalChecked} images checked
                 </div>
               </div>
             </div>
@@ -312,7 +346,7 @@ export default function ResultScreen() {
                   <span className="text-lg">🏆</span>
                   <span className="font-semibold text-amber-800">Top {shippingSummary.top10.length} Lowest Shipping</span>
                 </div>
-                <span className="text-sm text-slate-500">{shippingSummary.count} of {shippingSummary.totalChecked} images matched by Meesho</span>
+                <span className="text-sm text-slate-500">{shippingSummary.count} of {shippingSummary.totalChecked} images checked</span>
               </div>
               <button
                 type="button"
