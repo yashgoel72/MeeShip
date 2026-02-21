@@ -20,6 +20,7 @@ from app.routers import images
 from app.routers import dashboard
 from app.routers import payment
 from app.routers import kinde_auth
+from app.routers import meesho
 
 # Initialize settings
 settings = Settings()
@@ -79,6 +80,7 @@ app.include_router(dashboard.router, prefix="/api")
 app.include_router(images.router)
 app.include_router(payment.router, prefix="/api")
 app.include_router(kinde_auth.router)  # Kinde OAuth routes
+app.include_router(meesho.router, prefix="/api")  # Meesho account linking
 
 
 # Google Search Console verification

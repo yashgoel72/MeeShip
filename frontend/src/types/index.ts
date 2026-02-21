@@ -9,6 +9,10 @@ export interface User {
   isUpgraded: boolean;
   credits?: number;
   creditsExpiresAt?: string | null;
+  // Meesho integration fields
+  meeshoLinked?: boolean;
+  meeshoSupplierId?: string;
+  meeshoLinkedAt?: string | null;
 }
 
 export interface ImageUploadRequest {

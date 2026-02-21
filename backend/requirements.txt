@@ -28,3 +28,6 @@ kinde-python-sdk==2.2.0
 
 # SSE streaming for real-time variant delivery
 sse-starlette==2.1.0
+
+# Playwright for browser automation (Meesho credential capture)
+playwright==1.49.0

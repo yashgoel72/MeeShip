@@ -1,6 +1,9 @@
 import { motion } from 'framer-motion'
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
+import { useState } from 'react'
 import type { OptimizeResult } from '../stores/appStore'
+import ShippingCostBadge from './ShippingCostBadge'
+import MeeshoLinkModal from './MeeshoLinkModal'
 
 type Props = {
   result: OptimizeResult
@@ -8,6 +11,8 @@ type Props = {
   optimizedUrl: string
   onDownload: () => void
   downloadState: 'idle' | 'downloading' | 'saved'
+  /** Selling price for shipping calculation (default: 299) */
+  sellingPrice?: number
 }
 
 function formatBytes(bytes?: number) {
@@ -31,10 +36,12 @@ function DownloadIndicator({ state }: { state: 'idle' | 'downloading' | 'saved' 
   return null
 }
 
-export default function ResultShowcase({ result, originalUrl, optimizedUrl, onDownload, downloadState }: Props) {
+export default function ResultShowcase({ result, originalUrl, optimizedUrl, onDownload, downloadState, sellingPrice = 299 }: Props) {
   const inputBytes = result.metrics?.input_size_bytes
   const outputBytes = result.metrics?.output_size_bytes
   const savingsPct = result.cost?.savings_percentage ?? 60
+  const [showMeeshoModal, setShowMeeshoModal] = useState(false)
+  const [meeshoRefreshKey, setMeeshoRefreshKey] = useState(0)
 
   // INR estimate (no Meesho slab API): assume baseline shipping ₹50, show ±20% range.
   const baseline = 50
@@ -71,6 +78,14 @@ export default function ResultShowcase({ result, originalUrl, optimizedUrl, onDo
             <div className="mt-1 text-sm font-semibold text-slate-900">₹{min}–₹{max} / order</div>
             <div className="mt-1 text-xs text-success">Shipping Saved! (~{Math.round(savingsPct)}%)</div>
           </div>
+        </div>
+
+        {/* Meesho Shipping Cost - Real or CTA */}
+        <div className="mt-4" key={meeshoRefreshKey}>
+          <ShippingCostBadge
+            sellingPrice={sellingPrice}
+            onLinkClick={() => setShowMeeshoModal(true)}
+          />
         </div>
 
         <div className="mt-6 overflow-hidden rounded-3xl bg-slate-50 ring-1 ring-slate-200">
@@ -123,6 +138,17 @@ export default function ResultShowcase({ result, originalUrl, optimizedUrl, onDo
           </div>
         </div>
       </motion.div>
+
+      {/* Meesho Link Modal */}
+      <MeeshoLinkModal
+        open={showMeeshoModal}
+        onClose={() => setShowMeeshoModal(false)}
+        onSuccess={() => {
+          setShowMeeshoModal(false)
+          // Force refresh the ShippingCostBadge
+          setMeeshoRefreshKey(k => k + 1)
+        }}
+      />
     </div>
   )
 }

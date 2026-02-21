@@ -9,9 +9,11 @@ Provides FastAPI dependencies for:
 """
 
 import logging
+import os
 from typing import Optional
 from uuid import UUID
 
+from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -21,10 +23,17 @@ from app.database import get_db
 from app.models.user import User
 from app.models.subscription import Subscription
 
+# Load .env file explicitly
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 # Security scheme for Bearer token authentication
 security = HTTPBearer(auto_error=False)
+
+# Dev mode bypass - set DEV_BYPASS_AUTH=true in .env for local testing
+DEV_BYPASS_AUTH = os.environ.get("DEV_BYPASS_AUTH", "").lower() == "true"
+logger.info(f"DEV_BYPASS_AUTH = {DEV_BYPASS_AUTH}")
 
 
 async def get_current_user(
@@ -46,6 +55,27 @@ async def get_current_user(
     Raises:
         HTTPException: If token is missing, invalid, or user not found
     """
+    # DEV MODE: Bypass auth and return/create a test user
+    if DEV_BYPASS_AUTH:
+        logger.warning("DEV_BYPASS_AUTH enabled - using test user")
+        # Get or create test user
+        result = await db.execute(
+            select(User).where(User.email == "test@local.dev")
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            user = User(
+                email="test@local.dev",
+                full_name="Test User",
+                email_verified=True,
+                credits=1000,
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            logger.info(f"Created test user: {user.id}")
+        return user
+    
     if credentials is None:
         logger.warning(f"Missing authentication token from {request.client.host}")
         raise HTTPException(
@@ -133,6 +163,10 @@ async def get_current_user_optional(
     Returns:
         User object if authenticated, None otherwise
     """
+    # In dev mode, always return the test user even without a token
+    if DEV_BYPASS_AUTH:
+        return await get_current_user(request, credentials, db)
+
     if credentials is None:
         return None
     
