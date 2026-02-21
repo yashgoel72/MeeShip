@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useScroll } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
+import { getMeeshoStatus } from '../services/meeshoApi'
+import MeeshoLinkModal from './MeeshoLinkModal'
 
 interface HeaderProps {
   onSignIn?: () => void
@@ -12,6 +14,8 @@ export default function Header({ onSignIn }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false)
   const { isAuthenticated, user, logout } = useAuth()
   const location = useLocation()
+  const [meeshoLinked, setMeeshoLinked] = useState<boolean | null>(null)
+  const [showMeeshoModal, setShowMeeshoModal] = useState(false)
 
   const isHomePage = location.pathname === '/'
 
@@ -19,6 +23,25 @@ export default function Header({ onSignIn }: HeaderProps) {
     const unsub = scrollY.on('change', (v) => setScrolled(v > 8))
     return () => unsub()
   }, [scrollY])
+
+  // Check Meesho link status when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setMeeshoLinked(null)
+      return
+    }
+
+    const checkMeeshoStatus = async () => {
+      try {
+        const status = await getMeeshoStatus()
+        setMeeshoLinked(status.linked)
+      } catch {
+        setMeeshoLinked(false)
+      }
+    }
+
+    checkMeeshoStatus()
+  }, [isAuthenticated])
 
   return (
     <header className={
@@ -60,6 +83,23 @@ export default function Header({ onSignIn }: HeaderProps) {
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
+              {/* Meesho Link Status */}
+              {meeshoLinked !== null && (
+                <button
+                  type="button"
+                  onClick={() => setShowMeeshoModal(true)}
+                  className={`hidden items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors sm:flex ${
+                    meeshoLinked
+                      ? 'bg-pink-50 text-pink-700 ring-pink-200 hover:bg-pink-100'
+                      : 'bg-gray-50 text-gray-600 ring-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  {meeshoLinked ? 'Meesho ✓' : 'Link Meesho'}
+                </button>
+              )}
               {typeof user?.credits === 'number' && (
                 <div className="hidden items-center gap-2 sm:flex">
                   <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
@@ -98,6 +138,13 @@ export default function Header({ onSignIn }: HeaderProps) {
           )}
         </div>
       </div>
+
+      {/* Meesho Link Modal */}
+      <MeeshoLinkModal
+        open={showMeeshoModal}
+        onClose={() => setShowMeeshoModal(false)}
+        onSuccess={() => setMeeshoLinked(true)}
+      />
     </header>
   )
 }

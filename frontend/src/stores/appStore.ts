@@ -9,6 +9,16 @@ export type VariantMeta = {
   variant_type: string
   tile_name: string
   variant_label: string
+  shipping_cost?: {
+    shipping_charges: number
+    transfer_price: number
+    selling_price: number
+    duplicate_pid?: number | null
+  }
+  shipping_error?: {
+    error_code: 'SESSION_EXPIRED' | 'NOT_LINKED' | string
+    message: string
+  }
 }
 
 export type OptimizeResult = {

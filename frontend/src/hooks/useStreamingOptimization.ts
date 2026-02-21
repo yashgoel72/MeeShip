@@ -77,6 +77,8 @@ export function useStreamingOptimization() {
               variant_type: variant.variant_type,
               tile_name: variant.tile_name,
               variant_label: variant.variant_label,
+              shipping_cost: variant.shipping_cost,
+              shipping_error: variant.shipping_error,
             })
 
             setStreamingProgress({
@@ -119,12 +121,16 @@ export function useStreamingOptimization() {
               message: `Complete! ${result.successful}/${result.total} variants ready.`,
             })
 
-            // Update result with final data
+            // Merge final metadata INTO existing result — preserve the
+            // variants[] array built during streaming (contains shipping data)
+            const existing = useAppStore.getState().result
             setResult({
+              ...existing,
               id: result.id,
               blob_url: result.grid_url,
               original_blob_url: result.original_url,
               variant_blob_urls: result.variant_urls,
+              variants: existing?.variants || null,   // keep streaming variants!
               status: 'success',
               metrics: result.metrics,
             })

@@ -18,9 +18,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // DEV MODE: Skip Kinde auth and provide mock user with unlimited credits
 const DEV_SKIP_AUTH = import.meta.env.DEV;
 const DEV_USER: User = {
-  id: 'dev-user-123',
-  email: 'dev@test.com',
-  name: 'Dev User',
+  id: 'dev-user-local',
+  email: 'test@local.dev',
+  name: 'Test User',
   trialCount: 999,
   isUpgraded: true,
   credits: 9999,
