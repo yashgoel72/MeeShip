@@ -133,8 +133,8 @@ export default function PaymentModal({ open, onClose, defaultPackId = "starter",
         key: order.key_id,
         amount: order.amount,
         currency: order.currency,
-        name: "Meesho Image Optimizer",
-        description: `${pack.name} • ${pack.credits} credits`,
+        name: "MeeShip",
+        description: `${pack.name} • ${pack.credits} products`,
         order_id: order.order_id,
         prefill: {
           email: order.prefill?.email,
@@ -244,7 +244,7 @@ export default function PaymentModal({ open, onClose, defaultPackId = "starter",
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <div className="text-sm font-extrabold text-slate-900">{p.name}</div>
-                        <div className="mt-1 text-xs text-slate-600">{p.credits} credits • ~₹{p.per_image_cost}/image</div>
+                        <div className="mt-1 text-xs text-slate-600">{p.credits} products • ~₹{p.per_image_cost}/product</div>
                       </div>
                       <div className="text-sm font-extrabold text-slate-900">{formatInr(p.price_inr)}</div>
                     </div>

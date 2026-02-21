@@ -48,20 +48,20 @@ async function loadRazorpayScript(): Promise<void> {
 
 const PACK_FEATURES: Record<CreditPackId, string[]> = {
   starter: [
-    '10 credits',
-    'Studio-quality output',
+    '10 products',
+    'Shipping-optimized images',
     'No watermarks',
     'Valid for 7 days'
   ],
   pro: [
-    '50 credits',
-    'Studio-quality output',
+    '50 products',
+    'Shipping-optimized images',
     'No watermarks',
     'Valid for 30 days'
   ],
   enterprise: [
-    '150 credits',
-    'Studio-quality output',
+    '150 products',
+    'Shipping-optimized images',
     'No watermarks',
     'Valid for 60 days'
   ]
@@ -124,7 +124,7 @@ export default function PricingScreen() {
         amount: order.amount,
         currency: order.currency,
         name: 'MeeShip',
-        description: `${pack.name} • ${pack.credits} credits`,
+        description: `${pack.name} • ${pack.credits} products`,
         order_id: order.order_id,
         prefill: {
           email: order.prefill?.email,
@@ -145,7 +145,7 @@ export default function PricingScreen() {
             
             await refreshCredits?.()
             setCheckoutStep('success')
-            setSuccessMessage(`Successfully purchased ${pack.credits} credits!`)
+            setSuccessMessage(`Successfully purchased ${pack.credits} product credits!`)
             trackEvent('pricing_payment_verified', { pack_id: packId, credits: pack.credits })
           } catch (verifyErr: any) {
             setCheckoutStep('error')
@@ -207,10 +207,10 @@ export default function PricingScreen() {
             Buy Credits
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Studio-quality images at just <span className="font-semibold text-meesho">₹0.33 per image</span>. No watermarks, no compromise.
+            Save <span className="font-semibold text-meesho">₹10-20 per order</span> on Meesho shipping. No watermarks, no compromise.
           </p>
           <p className="mt-2 text-sm text-slate-500">
-            1 credit = 1 product optimization → <span className="font-medium text-slate-700">30 shipping-ready images</span>
+            1 credit = 1 product → <span className="font-medium text-slate-700">we test 30 images to find your cheapest shipping</span>
           </p>
 
           {/* Current balance */}
@@ -235,7 +235,7 @@ export default function PricingScreen() {
               onClick={() => navigate('/')}
               className="mt-2 text-sm text-emerald-600 hover:text-emerald-700 underline"
             >
-              Start optimizing images →
+              Start saving on shipping →
             </button>
           </div>
         )}
@@ -291,14 +291,14 @@ export default function PricingScreen() {
                       <span className="text-4xl font-extrabold text-slate-900">{formatInr(pack.price_inr)}</span>
                     </div>
                     <p className="mt-2 text-sm text-slate-500">
-                      ₹{(pack.price_inr / (pack.credits * 30)).toFixed(2)} per image
+                      ₹{(pack.price_inr / pack.credits).toFixed(0)} per product
                     </p>
                   </div>
 
                   {/* Credits highlight */}
                   <div className="mb-6 rounded-xl bg-slate-50 p-4 text-center">
-                    <span className="text-3xl font-bold text-meesho">{(pack.credits * 30).toLocaleString('en-IN')}</span>
-                    <span className="ml-2 text-slate-600">images</span>
+                    <span className="text-3xl font-bold text-meesho">{pack.credits}</span>
+                    <span className="ml-2 text-slate-600">products</span>
                   </div>
 
                   {/* Features */}
@@ -352,7 +352,7 @@ export default function PricingScreen() {
               <svg className="h-5 w-5 text-meesho" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
               </svg>
-              Studio-quality AI
+              Shipping-optimized AI
             </div>
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
