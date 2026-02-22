@@ -75,25 +75,34 @@ class MeeshoPlaywrightService:
     _sessions: Dict[str, PlaywrightSession] = {}
     
     @classmethod
-    async def create_session(cls, user_id: str) -> str:
+    async def create_session(
+        cls,
+        user_id: str,
+        email: str | None = None,
+        password: str | None = None,
+    ) -> str:
         """
         Create a new Playwright session and start the browser.
-        
+
+        If *email* and *password* are provided the login form is filled
+        automatically (programmatic mode).  Otherwise the browser opens
+        for manual login (legacy mode).
+
         Returns the session_id for polling.
         """
         session_id = str(uuid.uuid4())
         session = PlaywrightSession(
             session_id=session_id,
             user_id=user_id,
-            status=SessionStatus.PENDING
+            status=SessionStatus.PENDING,
         )
         cls._sessions[session_id] = session
-        
+
         # Start browser in background
         session.browser_task = asyncio.create_task(
-            cls._run_browser_session(session)
+            cls._run_browser_session(session, email=email, password=password)
         )
-        
+
         return session_id
     
     @classmethod
@@ -145,20 +154,30 @@ class MeeshoPlaywrightService:
         return True
     
     @classmethod
-    async def _run_browser_session(cls, session: PlaywrightSession):
+    async def _run_browser_session(
+        cls,
+        session: PlaywrightSession,
+        email: str | None = None,
+        password: str | None = None,
+    ):
         """
         Run the Playwright browser session in a subprocess.
         """
         # Create temp file for output
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             output_file = f.name
-        
+
         try:
             session.status = SessionStatus.BROWSER_OPEN
-            
-            # Run the browser script as subprocess - don't capture stdout so we see logs
+
+            # Build command
+            cmd = [sys.executable, BROWSER_RUNNER_SCRIPT, output_file]
+            if email and password:
+                cmd += ["--email", email, "--password", password]
+
+            # Run the browser script as subprocess
             process = subprocess.Popen(
-                [sys.executable, BROWSER_RUNNER_SCRIPT, output_file],
+                cmd,
                 # Don't capture output - let it print to terminal
             )
             session._process = process
