@@ -147,9 +147,10 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                 try:
                     page.goto(
                         "https://supplier.meesho.com/panel/v3/new/cataloging",
-                        wait_until="networkidle", timeout=30000,
+                        wait_until="domcontentloaded", timeout=15000,
                     )
-                    time.sleep(3)
+                    # Wait briefly for API calls to fire
+                    time.sleep(2)
                 except Exception as e:
                     logger.warning(f"Navigation to catalogs failed: {e}")
 
