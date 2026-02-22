@@ -84,12 +84,56 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                     headers = request.headers
                     if headers.get("supplier-id"):
                         captured_supplier_id = headers["supplier-id"]
-                        logger.info(f"Captured supplier-id from headers: {captured_supplier_id}")
+                        logger.info(f"Captured supplier-id from request headers: {captured_supplier_id}")
                     if headers.get("identifier"):
                         captured_identifier = headers["identifier"]
-                        logger.info(f"Captured identifier from headers: {captured_identifier}")
+                        logger.info(f"Captured identifier from request headers: {captured_identifier}")
+
+            # Intercept responses to capture supplier_id from API response bodies
+            def handle_response(response):
+                nonlocal captured_supplier_id, captured_identifier
+                url = response.url
+                try:
+                    # Check login API response
+                    if "v2-login" in url or "v2_login" in url or "login" in url:
+                        if response.status == 200 and "application/json" in (response.headers.get("content-type") or ""):
+                            body = response.json()
+                            logger.info(f"Login API response keys: {list(body.keys()) if isinstance(body, dict) else 'not-dict'}")
+                            if isinstance(body, dict):
+                                sid = body.get("supplier_id") or body.get("supplierId") or body.get("Supplier_id")
+                                if sid:
+                                    captured_supplier_id = str(sid)
+                                    logger.info(f"✅ Captured supplier_id from login response: {captured_supplier_id}")
+                                ident = body.get("identifier") or body.get("Identifier")
+                                if ident:
+                                    captured_identifier = str(ident)
+                                    logger.info(f"✅ Captured identifier from login response: {captured_identifier}")
+                                # Check nested data
+                                data = body.get("data") or body.get("result") or {}
+                                if isinstance(data, dict):
+                                    logger.info(f"Login response nested keys: {list(data.keys())}")
+                                    sid2 = data.get("supplier_id") or data.get("supplierId") or data.get("Supplier_id") or data.get("id")
+                                    if sid2 and not captured_supplier_id:
+                                        captured_supplier_id = str(sid2)
+                                        logger.info(f"✅ Captured supplier_id from login response data: {captured_supplier_id}")
+                                    ident2 = data.get("identifier") or data.get("Identifier")
+                                    if ident2 and not captured_identifier:
+                                        captured_identifier = str(ident2)
+                                        logger.info(f"✅ Captured identifier from login response data: {captured_identifier}")
+                    # Check cataloging API responses
+                    elif "catalogingapi" in url or "api/container" in url or "api/supplier" in url:
+                        if response.status == 200 and "application/json" in (response.headers.get("content-type") or ""):
+                            body = response.json()
+                            if isinstance(body, dict):
+                                sid = body.get("supplier_id") or body.get("supplierId")
+                                if sid and not captured_supplier_id:
+                                    captured_supplier_id = str(sid)
+                                    logger.info(f"✅ Captured supplier_id from API response: {captured_supplier_id}")
+                except Exception:
+                    pass  # Don't crash on response parsing errors
 
             page.on("request", handle_request)
+            page.on("response", handle_response)
 
             # Navigate to Meesho supplier login
             try:
@@ -151,17 +195,125 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                 try:
                     page.goto(
                         "https://supplier.meesho.com/panel/v3/new/cataloging",
-                        wait_until="domcontentloaded", timeout=15000,
+                        wait_until="networkidle", timeout=30000,
                     )
-                    # Wait and scroll to trigger more API calls
-                    time.sleep(2)
-                    page.evaluate("window.scrollTo(0, 500)")
-                    time.sleep(1)
-                    page.evaluate("window.scrollTo(0, 0)")
-                    time.sleep(2)
-                    logger.info("Waited 5s for API calls after catalog page load")
+                    logger.info("Catalog page loaded (networkidle)")
                 except Exception as e:
-                    logger.warning(f"Navigation to catalogs failed: {e}")
+                    logger.warning(f"Navigation to catalogs: {e}")
+
+                # Poll cookies for up to 10s waiting for supplier_id to appear
+                poll_start = time.time()
+                while not captured_supplier_id and (time.time() - poll_start) < 10:
+                    time.sleep(1)
+                    ck = context.cookies(MEESHO_SUPPLIER_URL)
+                    for c in ck:
+                        if c["name"].startswith("mp_a66867") or c["name"].startswith("mp_"):
+                            try:
+                                decoded = urllib.parse.unquote(c["value"])
+                                data = json.loads(decoded)
+                                sid = data.get("Supplier_id") or data.get("supplier_id")
+                                if sid:
+                                    captured_supplier_id = str(sid)
+                                    logger.info(f"✅ Captured supplier_id from cookie (poll): {captured_supplier_id}")
+                                ident = data.get("Supplier_tag") or data.get("identifier")
+                                if ident and not captured_identifier:
+                                    captured_identifier = ident
+                                    logger.info(f"✅ Captured identifier from cookie (poll): {captured_identifier}")
+                            except (json.JSONDecodeError, KeyError):
+                                pass
+                    if captured_supplier_id:
+                        break
+                    logger.info(f"Polling for supplier_id... ({int(time.time() - poll_start)}s)")
+                    # Scroll to trigger lazy-loaded API calls
+                    try:
+                        page.evaluate("window.scrollTo(0, 500)")
+                    except Exception:
+                        pass
+
+            # Fallback: try extracting from localStorage / sessionStorage / JS
+            if not captured_supplier_id:
+                logger.info("Trying localStorage/sessionStorage/JS fallback for supplier_id...")
+                try:
+                    # Check localStorage
+                    ls_keys = page.evaluate("Object.keys(localStorage)")
+                    logger.info(f"localStorage keys: {ls_keys}")
+                    for key in ls_keys:
+                        val = page.evaluate(f"localStorage.getItem('{key}')")
+                        if val and "supplier" in key.lower():
+                            logger.info(f"localStorage['{key}'] = {val[:200]}")
+                            try:
+                                parsed = json.loads(val) if val.startswith('{') else None
+                                if parsed and isinstance(parsed, dict):
+                                    sid = parsed.get("supplier_id") or parsed.get("supplierId") or parsed.get("id")
+                                    if sid:
+                                        captured_supplier_id = str(sid)
+                                        logger.info(f"✅ Captured supplier_id from localStorage: {captured_supplier_id}")
+                            except (json.JSONDecodeError, TypeError):
+                                # Maybe the value itself is the supplier_id
+                                if val.isdigit():
+                                    captured_supplier_id = val
+                                    logger.info(f"✅ Captured supplier_id from localStorage value: {captured_supplier_id}")
+                except Exception as e:
+                    logger.warning(f"localStorage check failed: {e}")
+
+                try:
+                    # Check sessionStorage
+                    ss_keys = page.evaluate("Object.keys(sessionStorage)")
+                    logger.info(f"sessionStorage keys: {ss_keys}")
+                    for key in ss_keys:
+                        val = page.evaluate(f"sessionStorage.getItem('{key}')")
+                        if val and "supplier" in key.lower():
+                            logger.info(f"sessionStorage['{key}'] = {val[:200]}")
+                            if val.isdigit():
+                                captured_supplier_id = val
+                                logger.info(f"✅ Captured supplier_id from sessionStorage: {captured_supplier_id}")
+                except Exception as e:
+                    logger.warning(f"sessionStorage check failed: {e}")
+
+                try:
+                    # Check __NEXT_DATA__ or window variables
+                    next_data = page.evaluate("""
+                        () => {
+                            try {
+                                const nd = window.__NEXT_DATA__;
+                                if (nd && nd.props && nd.props.pageProps) {
+                                    return JSON.stringify(nd.props.pageProps);
+                                }
+                            } catch(e) {}
+                            return null;
+                        }
+                    """)
+                    if next_data:
+                        logger.info(f"__NEXT_DATA__ pageProps: {next_data[:300]}")
+                        parsed = json.loads(next_data)
+                        if isinstance(parsed, dict):
+                            sid = parsed.get("supplier_id") or parsed.get("supplierId")
+                            if sid:
+                                captured_supplier_id = str(sid)
+                                logger.info(f"✅ Captured supplier_id from __NEXT_DATA__: {captured_supplier_id}")
+                except Exception as e:
+                    logger.warning(f"__NEXT_DATA__ check failed: {e}")
+
+            # Re-check cookies after catalog page (may have been set by now)
+            if not captured_supplier_id:
+                cookies2 = context.cookies(MEESHO_SUPPLIER_URL)
+                logger.info(f"Re-checking {len(cookies2)} cookies after catalog page...")
+                for cookie in cookies2:
+                    name = cookie["name"]
+                    # Log ALL cookie names for debugging
+                logger.info(f"All cookie names: {[c['name'] for c in cookies2]}")
+                for cookie in cookies2:
+                    name = cookie["name"]
+                    if name.startswith("mp_"):
+                        try:
+                            decoded = urllib.parse.unquote(cookie["value"])
+                            data = json.loads(decoded)
+                            sid = data.get("Supplier_id") or data.get("supplier_id") or data.get("supplierId")
+                            if sid:
+                                captured_supplier_id = str(sid)
+                                logger.info(f"✅ Captured supplier_id from re-checked cookie: {captured_supplier_id}")
+                        except (json.JSONDecodeError, KeyError):
+                            pass
 
             browser.close()
 
