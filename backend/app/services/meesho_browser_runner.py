@@ -127,17 +127,21 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                     captured_browser_id = cookie["value"]
                     logger.info(f"✅ Captured browser_id: {captured_browser_id}")
                 elif name.startswith("mp_a66867"):
+                    logger.info(f"Found mixpanel cookie: {name}")
                     try:
                         decoded = urllib.parse.unquote(cookie["value"])
                         data = json.loads(decoded)
+                        logger.info(f"Mixpanel cookie keys: {list(data.keys())}")
                         sid = data.get("Supplier_id") or data.get("supplier_id")
                         ident = data.get("Supplier_tag") or data.get("identifier")
                         if sid:
                             captured_supplier_id = str(sid)
-                            logger.info(f"✅ Captured supplier_id: {captured_supplier_id}")
+                            logger.info(f"✅ Captured supplier_id from cookie: {captured_supplier_id}")
+                        else:
+                            logger.warning("No Supplier_id or supplier_id in mixpanel cookie")
                         if ident:
                             captured_identifier = ident
-                            logger.info(f"✅ Captured identifier: {captured_identifier}")
+                            logger.info(f"✅ Captured identifier from cookie: {captured_identifier}")
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Could not parse mixpanel cookie: {e}")
 
@@ -147,9 +151,15 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                 try:
                     page.goto(
                         "https://supplier.meesho.com/panel/v3/new/cataloging",
-                        wait_until="networkidle", timeout=30000,
+                        wait_until="domcontentloaded", timeout=15000,
                     )
-                    time.sleep(3)
+                    # Wait and scroll to trigger more API calls
+                    time.sleep(2)
+                    page.evaluate("window.scrollTo(0, 500)")
+                    time.sleep(1)
+                    page.evaluate("window.scrollTo(0, 0)")
+                    time.sleep(2)
+                    logger.info("Waited 5s for API calls after catalog page load")
                 except Exception as e:
                     logger.warning(f"Navigation to catalogs failed: {e}")
 
