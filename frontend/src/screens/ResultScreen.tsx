@@ -72,6 +72,8 @@ export default function ResultScreen() {
   const streamingProgress = useAppStore((s) => s.streamingProgress)
   const downloadState = useAppStore((s) => s.downloadState)
   const setDownloadState = useAppStore((s) => s.setDownloadState)
+  const sscatName = useSscatName()
+  const sscatBreadcrumb = useSscatBreadcrumb()
   const { user, isAuthenticated } = useAuth()
 
   const [confetti, setConfetti] = useState(true)
@@ -265,14 +267,14 @@ export default function ResultScreen() {
         </motion.div>
 
         {/* Selected product category */}
-        {useSscatName() && (
+        {sscatName && (
           <div className="mt-3 flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
               <span className="text-sm">🏷️</span>
-              {useSscatName()}
+              {sscatName}
             </span>
-            {useSscatBreadcrumb() && (
-              <span className="text-xs text-slate-400">{useSscatBreadcrumb()}</span>
+            {sscatBreadcrumb && (
+              <span className="text-xs text-slate-400">{sscatBreadcrumb}</span>
             )}
           </div>
         )}
