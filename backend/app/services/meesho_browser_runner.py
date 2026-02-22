@@ -155,79 +155,30 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                 return
 
             logger.info("Login successful! Extracting credentials...")
-            time.sleep(3)  # Let cookies settle
+            time.sleep(2)  # Brief pause for cookies to set
 
-            # ── Extract credentials from cookies ────────────────────
+            # ── Step 1: Extract connect.sid & browser_id from cookies (always available) ──
             cookies = context.cookies(MEESHO_SUPPLIER_URL)
             logger.info(f"Found {len(cookies)} cookies")
 
             for cookie in cookies:
                 name = cookie["name"]
-
                 if name == "connect.sid":
                     captured_connect_sid = cookie["value"]
                     logger.info("✅ Captured connect.sid")
                 elif name == "browser_id":
                     captured_browser_id = cookie["value"]
                     logger.info(f"✅ Captured browser_id: {captured_browser_id}")
-                elif name.startswith("mp_a66867"):
-                    logger.info(f"Found mixpanel cookie: {name}")
-                    try:
-                        decoded = urllib.parse.unquote(cookie["value"])
-                        data = json.loads(decoded)
-                        logger.info(f"Mixpanel cookie keys: {list(data.keys())}")
-                        sid = data.get("Supplier_id") or data.get("supplier_id")
-                        ident = data.get("Supplier_tag") or data.get("identifier")
-                        if sid:
-                            captured_supplier_id = str(sid)
-                            logger.info(f"✅ Captured supplier_id from cookie: {captured_supplier_id}")
-                        else:
-                            logger.warning("No Supplier_id or supplier_id in mixpanel cookie")
-                        if ident:
-                            captured_identifier = ident
-                            logger.info(f"✅ Captured identifier from cookie: {captured_identifier}")
-                    except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Could not parse mixpanel cookie: {e}")
 
-            # Fallback: navigate to catalogs page to trigger API calls
-            if not captured_supplier_id or not captured_identifier:
-                logger.info("Navigating to catalogs page to trigger API calls...")
-                try:
-                    page.goto(
-                        "https://supplier.meesho.com/panel/v3/new/cataloging",
-                        wait_until="networkidle", timeout=30000,
-                    )
-                    logger.info("Catalog page loaded (networkidle)")
-                except Exception as e:
-                    logger.warning(f"Navigation to catalogs: {e}")
+            # ── Step 2: Quick check — supplier_id from request headers (already captured passively) ──
+            if captured_supplier_id:
+                logger.info(f"✅ supplier_id already captured from request headers: {captured_supplier_id}")
+            if captured_identifier:
+                logger.info(f"✅ identifier already captured from request headers: {captured_identifier}")
 
-                # Poll cookies for up to 10s waiting for supplier_id to appear
-                poll_start = time.time()
-                while not captured_supplier_id and (time.time() - poll_start) < 10:
-                    time.sleep(1)
-                    ck = context.cookies(MEESHO_SUPPLIER_URL)
-                    for c in ck:
-                        if c["name"].startswith("mp_a66867") or c["name"].startswith("mp_"):
-                            try:
-                                decoded = urllib.parse.unquote(c["value"])
-                                data = json.loads(decoded)
-                                sid = data.get("Supplier_id") or data.get("supplier_id")
-                                if sid:
-                                    captured_supplier_id = str(sid)
-                                    logger.info(f"✅ Captured supplier_id from cookie (poll): {captured_supplier_id}")
-                                ident = data.get("Supplier_tag") or data.get("identifier")
-                                if ident and not captured_identifier:
-                                    captured_identifier = ident
-                                    logger.info(f"✅ Captured identifier from cookie (poll): {captured_identifier}")
-                            except (json.JSONDecodeError, KeyError):
-                                pass
-                    if captured_supplier_id:
-                        break
-                    logger.info(f"Polling for supplier_id... ({int(time.time() - poll_start)}s)")
-
-            # Fallback: call getSupplierDetails API directly via fetch
+            # ── Step 3: Fast API call — getSupplierDetails (~1s, most reliable) ──
             if not captured_supplier_id and captured_identifier:
-                logger.info(f"Calling getSupplierDetails API with identifier={captured_identifier}...")
+                logger.info(f"Calling getSupplierDetails API (identifier={captured_identifier})...")
                 try:
                     api_result = page.evaluate("""
                         async (identifier) => {
@@ -238,14 +189,12 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                                     body: JSON.stringify({ identifier }),
                                 });
                                 if (!resp.ok) return { error: `HTTP ${resp.status}` };
-                                const data = await resp.json();
-                                return data;
+                                return await resp.json();
                             } catch (e) {
                                 return { error: e.message };
                             }
                         }
                     """, captured_identifier)
-                    logger.info(f"getSupplierDetails response keys: {list(api_result.keys()) if isinstance(api_result, dict) else 'not-dict'}")
                     if isinstance(api_result, dict):
                         supplier = api_result.get("supplier", {})
                         if isinstance(supplier, dict):
@@ -253,15 +202,66 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                             if sid:
                                 captured_supplier_id = str(sid)
                                 logger.info(f"✅ Captured supplier_id from getSupplierDetails: {captured_supplier_id}")
-                            if not captured_identifier:
-                                ident = supplier.get("identifier")
-                                if ident:
-                                    captured_identifier = str(ident)
-                                    logger.info(f"✅ Captured identifier from getSupplierDetails: {captured_identifier}")
+                            ident = supplier.get("identifier")
+                            if ident and not captured_identifier:
+                                captured_identifier = str(ident)
+                                logger.info(f"✅ Captured identifier from getSupplierDetails: {captured_identifier}")
                         elif api_result.get("error"):
                             logger.warning(f"getSupplierDetails error: {api_result['error']}")
                 except Exception as e:
                     logger.warning(f"getSupplierDetails call failed: {e}")
+
+            # ── Step 4: Mixpanel cookie (fast, but unreliable on Azure) ──
+            if not captured_supplier_id:
+                for cookie in cookies:
+                    if cookie["name"].startswith("mp_a66867"):
+                        try:
+                            decoded = urllib.parse.unquote(cookie["value"])
+                            data = json.loads(decoded)
+                            sid = data.get("Supplier_id") or data.get("supplier_id")
+                            if sid:
+                                captured_supplier_id = str(sid)
+                                logger.info(f"✅ Captured supplier_id from mixpanel cookie: {captured_supplier_id}")
+                            ident = data.get("Supplier_tag") or data.get("identifier")
+                            if ident and not captured_identifier:
+                                captured_identifier = ident
+                                logger.info(f"✅ Captured identifier from mixpanel cookie: {captured_identifier}")
+                        except (json.JSONDecodeError, KeyError) as e:
+                            logger.warning(f"Could not parse mixpanel cookie: {e}")
+
+            # ── Step 5: Last resort — navigate to catalog page to trigger API calls ──
+            if not captured_supplier_id or not captured_identifier:
+                logger.info("Last resort: navigating to catalogs page...")
+                try:
+                    page.goto(
+                        "https://supplier.meesho.com/panel/v3/new/cataloging",
+                        wait_until="networkidle", timeout=30000,
+                    )
+                    logger.info("Catalog page loaded (networkidle)")
+                except Exception as e:
+                    logger.warning(f"Navigation to catalogs: {e}")
+
+                # Poll cookies for up to 8s
+                poll_start = time.time()
+                while not captured_supplier_id and (time.time() - poll_start) < 8:
+                    time.sleep(1)
+                    ck = context.cookies(MEESHO_SUPPLIER_URL)
+                    for c in ck:
+                        if c["name"].startswith("mp_"):
+                            try:
+                                decoded = urllib.parse.unquote(c["value"])
+                                data = json.loads(decoded)
+                                sid = data.get("Supplier_id") or data.get("supplier_id")
+                                if sid:
+                                    captured_supplier_id = str(sid)
+                                    logger.info(f"✅ Captured supplier_id from cookie (poll): {captured_supplier_id}")
+                                ident = data.get("Supplier_tag") or data.get("identifier")
+                                if ident and not captured_identifier:
+                                    captured_identifier = ident
+                            except (json.JSONDecodeError, KeyError):
+                                pass
+                    if captured_supplier_id:
+                        break
 
             browser.close()
 
