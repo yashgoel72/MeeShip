@@ -63,6 +63,10 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                     "--start-maximized",
                     "--disable-blink-features=AutomationControlled",
                     "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-setuid-sandbox",
+                    "--disable-infobars",
+                    "--window-size=1280,900",
                 ]
             )
 
@@ -77,25 +81,50 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
 
             page = context.new_page()
 
+            # Stealth: mask Playwright/automation signals
+            page.add_init_script("""
+                // Remove webdriver flag
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                // Mock plugins
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5],
+                });
+                // Mock languages
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en'],
+                });
+                // Remove chrome.runtime to avoid detection
+                if (window.chrome) {
+                    window.chrome.runtime = undefined;
+                }
+            """)
+
             # Intercept requests to capture headers (backup method)
+            IDENTIFIER_BLACKLIST = {"login", "root", "panel", "new", "v3", "v2", "api", "undefined", "null", ""}
+
             def handle_request(request):
                 nonlocal captured_supplier_id, captured_identifier
                 if "catalogingapi" in request.url or "supplier.meesho.com" in request.url:
                     headers = request.headers
                     if headers.get("supplier-id"):
-                        captured_supplier_id = headers["supplier-id"]
-                        logger.info(f"Captured supplier-id from request headers: {captured_supplier_id}")
+                        sid = headers["supplier-id"]
+                        if sid.isdigit():  # supplier-id must be numeric
+                            captured_supplier_id = sid
+                            logger.info(f"Captured supplier-id from request headers: {captured_supplier_id}")
                     if headers.get("identifier"):
-                        captured_identifier = headers["identifier"]
-                        logger.info(f"Captured identifier from request headers: {captured_identifier}")
+                        ident = headers["identifier"]
+                        if ident.lower() not in IDENTIFIER_BLACKLIST and len(ident) >= 3:
+                            captured_identifier = ident
+                            logger.info(f"Captured identifier from request headers: {captured_identifier}")
 
             # Intercept responses to capture supplier_id from API response bodies
             def handle_response(response):
                 nonlocal captured_supplier_id, captured_identifier
                 url = response.url
                 try:
-                    # Check login API response
-                    if "v2-login" in url or "v2_login" in url or "login" in url:
+                    # Check login API response (only actual API calls, not page loads)
+                    if ("v2-login" in url or "v2_login" in url) or \
+                       ("login" in url and "api" in url and response.request.resource_type == "xhr"):
                         if response.status == 200 and "application/json" in (response.headers.get("content-type") or ""):
                             body = response.json()
                             logger.info(f"Login API response keys: {list(body.keys()) if isinstance(body, dict) else 'not-dict'}")
@@ -231,7 +260,7 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
 
             # ── Step 5: Last resort — navigate to catalog page to trigger API calls ──
             if not captured_supplier_id or not captured_identifier:
-                logger.info("Last resort: navigating to catalogs page...")
+                logger.info("Navigating to catalogs page to trigger API calls...")
                 try:
                     page.goto(
                         "https://supplier.meesho.com/panel/v3/new/cataloging",
@@ -241,27 +270,61 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                 except Exception as e:
                     logger.warning(f"Navigation to catalogs: {e}")
 
-                # Poll cookies for up to 8s
-                poll_start = time.time()
-                while not captured_supplier_id and (time.time() - poll_start) < 8:
-                    time.sleep(1)
-                    ck = context.cookies(MEESHO_SUPPLIER_URL)
-                    for c in ck:
-                        if c["name"].startswith("mp_"):
-                            try:
-                                decoded = urllib.parse.unquote(c["value"])
-                                data = json.loads(decoded)
-                                sid = data.get("Supplier_id") or data.get("supplier_id")
+                # Catalog navigation fires request listener → identifier captured
+                # Retry getSupplierDetails now that we likely have a valid identifier
+                if not captured_supplier_id and captured_identifier:
+                    logger.info(f"Retrying getSupplierDetails with identifier={captured_identifier}...")
+                    try:
+                        api_result = page.evaluate("""
+                            async (identifier) => {
+                                try {
+                                    const resp = await fetch('/api/container/supplier/getSupplierDetails', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ identifier }),
+                                    });
+                                    if (!resp.ok) return { error: `HTTP ${resp.status}` };
+                                    return await resp.json();
+                                } catch (e) {
+                                    return { error: e.message };
+                                }
+                            }
+                        """, captured_identifier)
+                        if isinstance(api_result, dict):
+                            supplier = api_result.get("supplier", {})
+                            if isinstance(supplier, dict):
+                                sid = supplier.get("supplier_id")
                                 if sid:
                                     captured_supplier_id = str(sid)
-                                    logger.info(f"✅ Captured supplier_id from cookie (poll): {captured_supplier_id}")
-                                ident = data.get("Supplier_tag") or data.get("identifier")
-                                if ident and not captured_identifier:
-                                    captured_identifier = ident
-                            except (json.JSONDecodeError, KeyError):
-                                pass
-                    if captured_supplier_id:
-                        break
+                                    logger.info(f"✅ Captured supplier_id from getSupplierDetails (retry): {captured_supplier_id}")
+                            elif api_result.get("error"):
+                                logger.warning(f"getSupplierDetails retry error: {api_result['error']}")
+                    except Exception as e:
+                        logger.warning(f"getSupplierDetails retry failed: {e}")
+
+                # Poll cookies for up to 8s (fallback if API didn't work)
+                if not captured_supplier_id:
+                    poll_start = time.time()
+                    while not captured_supplier_id and (time.time() - poll_start) < 8:
+                        time.sleep(1)
+                        logger.info(f"Polling cookies for supplier_id... ({int(time.time() - poll_start)}s)")
+                        ck = context.cookies(MEESHO_SUPPLIER_URL)
+                        for c in ck:
+                            if c["name"].startswith("mp_"):
+                                try:
+                                    decoded = urllib.parse.unquote(c["value"])
+                                    data = json.loads(decoded)
+                                    sid = data.get("Supplier_id") or data.get("supplier_id")
+                                    if sid:
+                                        captured_supplier_id = str(sid)
+                                        logger.info(f"✅ Captured supplier_id from cookie (poll): {captured_supplier_id}")
+                                    ident = data.get("Supplier_tag") or data.get("identifier")
+                                    if ident and not captured_identifier:
+                                        captured_identifier = ident
+                                except (json.JSONDecodeError, KeyError):
+                                    pass
+                        if captured_supplier_id:
+                            break
 
             browser.close()
 
@@ -304,10 +367,33 @@ def _do_programmatic_login(page, context, email: str, password: str) -> bool:
         page.wait_for_selector("input", timeout=15000)
     except Exception:
         logger.warning("Form slow to render, extra wait...")
-        time.sleep(5)
+        time.sleep(3)
         if not page.query_selector_all("input"):
-            logger.error("No input fields found on login page")
-            return False
+            # Debug: log page state
+            logger.warning(f"Page title: {page.title()}")
+            logger.warning(f"Page URL: {page.url}")
+            try:
+                page.screenshot(path="/tmp/login_debug.png")
+                logger.info("Debug screenshot saved to /tmp/login_debug.png")
+            except Exception:
+                pass
+
+            # Retry: reload page and wait again
+            logger.info("Retrying: reloading login page...")
+            try:
+                page.reload(wait_until="domcontentloaded", timeout=30000)
+                time.sleep(2)
+                page.wait_for_selector("input", timeout=20000)
+                logger.info("✅ Form appeared after reload")
+            except Exception:
+                time.sleep(5)
+                if not page.query_selector_all("input"):
+                    logger.error("No input fields found even after reload")
+                    try:
+                        page.screenshot(path="/tmp/login_debug_retry.png")
+                    except Exception:
+                        pass
+                    return False
 
     # Fill email / phone
     for sel in ['input[name="emailOrPhone"]', 'input[type="email"]',
