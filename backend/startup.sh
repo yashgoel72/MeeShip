@@ -1,28 +1,34 @@
 #!/bin/bash
-set -e
+# Don't use set -e — we want the app to start even if Xvfb/apt fails
 
 echo "=== MeeShip Startup Script ==="
+echo "Working directory: $(pwd)"
 
-# 1. Activate Python virtual environment
-if [ -f /home/site/wwwroot/antenv/bin/activate ]; then
-    echo "Activating virtual environment..."
+# 1. Activate Python virtual environment (try relative path first, then absolute)
+if [ -f antenv/bin/activate ]; then
+    echo "Activating virtual environment (relative)..."
+    source antenv/bin/activate
+elif [ -f /home/site/wwwroot/antenv/bin/activate ]; then
+    echo "Activating virtual environment (/home/site/wwwroot)..."
     source /home/site/wwwroot/antenv/bin/activate
 else
-    echo "WARNING: Virtual environment not found at /home/site/wwwroot/antenv"
+    echo "WARNING: Virtual environment not found — trying system Python"
 fi
+echo "Python: $(which python) — $(python --version)"
 
-# 2. Install Xvfb (virtual display for headed Chromium)
+# 3. Install Xvfb (virtual display for headed Chromium)
 echo "Installing Xvfb..."
-apt-get update -qq && apt-get install -y -qq xvfb > /dev/null 2>&1
+apt-get update -qq && apt-get install -y -qq xvfb > /dev/null 2>&1 || echo "⚠️ apt-get failed (non-fatal)"
 echo "Xvfb installed."
 
-# 3. Install Playwright browser dependencies
-echo "Installing Playwright dependencies..."
-PLAYWRIGHT_BROWSERS_PATH=/home/playwright-browsers playwright install chromium 2>/dev/null || true
-PLAYWRIGHT_BROWSERS_PATH=/home/playwright-browsers playwright install-deps chromium 2>/dev/null || true
+# 4. Install Playwright browser + OS deps, and export path globally
+export PLAYWRIGHT_BROWSERS_PATH=/home/playwright-browsers
+echo "Installing Playwright dependencies (PLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH)..."
+playwright install chromium 2>/dev/null || true
+playwright install-deps chromium 2>/dev/null || true
 echo "Playwright ready."
 
-# 4. Start Xvfb on display :99
+# 5. Start Xvfb on display :99
 echo "Starting Xvfb on :99..."
 # Kill any existing Xvfb first
 pkill -f "Xvfb :99" 2>/dev/null || true
@@ -46,6 +52,6 @@ fi
 export DISPLAY=:99
 echo "DISPLAY=$DISPLAY"
 
-# 5. Start the application
-echo "Starting uvicorn..."
-exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+# 6. Start the application (use Azure's PORT env var, default 8000)
+echo "Starting uvicorn on port ${PORT:-8000}..."
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
