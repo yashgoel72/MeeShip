@@ -175,9 +175,19 @@ class MeeshoPlaywrightService:
             if email and password:
                 cmd += ["--email", email, "--password", password]
 
+            # Prepare environment with DISPLAY for Xvfb (Azure)
+            import os
+            env = os.environ.copy()
+            if 'DISPLAY' not in env and os.getenv('DISPLAY'):
+                env['DISPLAY'] = os.getenv('DISPLAY')
+            # Fallback: if DISPLAY isn't set, use :99 (Xvfb default)
+            if 'DISPLAY' not in env:
+                env['DISPLAY'] = ':99'
+
             # Run the browser script as subprocess
             process = subprocess.Popen(
                 cmd,
+                env=env,
                 # Don't capture output - let it print to terminal
             )
             session._process = process
