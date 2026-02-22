@@ -99,71 +99,6 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                 }
             """)
 
-            # Intercept requests to capture headers (backup method)
-            IDENTIFIER_BLACKLIST = {"login", "root", "panel", "new", "v3", "v2", "api", "undefined", "null", ""}
-
-            def handle_request(request):
-                nonlocal captured_supplier_id, captured_identifier
-                if "catalogingapi" in request.url or "supplier.meesho.com" in request.url:
-                    headers = request.headers
-                    if headers.get("supplier-id"):
-                        sid = headers["supplier-id"]
-                        if sid.isdigit():  # supplier-id must be numeric
-                            captured_supplier_id = sid
-                            logger.info(f"Captured supplier-id from request headers: {captured_supplier_id}")
-                    if headers.get("identifier"):
-                        ident = headers["identifier"]
-                        if ident.lower() not in IDENTIFIER_BLACKLIST and len(ident) >= 3:
-                            captured_identifier = ident
-                            logger.info(f"Captured identifier from request headers: {captured_identifier}")
-
-            # Intercept responses to capture supplier_id from API response bodies
-            def handle_response(response):
-                nonlocal captured_supplier_id, captured_identifier
-                url = response.url
-                try:
-                    # Check login API response (only actual API calls, not page loads)
-                    if ("v2-login" in url or "v2_login" in url) or \
-                       ("login" in url and "api" in url and response.request.resource_type == "xhr"):
-                        if response.status == 200 and "application/json" in (response.headers.get("content-type") or ""):
-                            body = response.json()
-                            logger.info(f"Login API response keys: {list(body.keys()) if isinstance(body, dict) else 'not-dict'}")
-                            if isinstance(body, dict):
-                                sid = body.get("supplier_id") or body.get("supplierId") or body.get("Supplier_id")
-                                if sid:
-                                    captured_supplier_id = str(sid)
-                                    logger.info(f"✅ Captured supplier_id from login response: {captured_supplier_id}")
-                                ident = body.get("identifier") or body.get("Identifier")
-                                if ident:
-                                    captured_identifier = str(ident)
-                                    logger.info(f"✅ Captured identifier from login response: {captured_identifier}")
-                                # Check nested data
-                                data = body.get("data") or body.get("result") or {}
-                                if isinstance(data, dict):
-                                    logger.info(f"Login response nested keys: {list(data.keys())}")
-                                    sid2 = data.get("supplier_id") or data.get("supplierId") or data.get("Supplier_id") or data.get("id")
-                                    if sid2 and not captured_supplier_id:
-                                        captured_supplier_id = str(sid2)
-                                        logger.info(f"✅ Captured supplier_id from login response data: {captured_supplier_id}")
-                                    ident2 = data.get("identifier") or data.get("Identifier")
-                                    if ident2 and not captured_identifier:
-                                        captured_identifier = str(ident2)
-                                        logger.info(f"✅ Captured identifier from login response data: {captured_identifier}")
-                    # Check cataloging API responses
-                    elif "catalogingapi" in url or "api/container" in url or "api/supplier" in url:
-                        if response.status == 200 and "application/json" in (response.headers.get("content-type") or ""):
-                            body = response.json()
-                            if isinstance(body, dict):
-                                sid = body.get("supplier_id") or body.get("supplierId")
-                                if sid and not captured_supplier_id:
-                                    captured_supplier_id = str(sid)
-                                    logger.info(f"✅ Captured supplier_id from API response: {captured_supplier_id}")
-                except Exception:
-                    pass  # Don't crash on response parsing errors
-
-            page.on("request", handle_request)
-            page.on("response", handle_response)
-
             # Navigate to Meesho supplier login
             try:
                 page.goto(MEESHO_LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
@@ -199,23 +134,18 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                     captured_browser_id = cookie["value"]
                     logger.info(f"✅ Captured browser_id: {captured_browser_id}")
 
-            # ── Step 2: Quick check — supplier_id from request headers (already captured passively) ──
-            if captured_supplier_id:
-                logger.info(f"✅ supplier_id already captured from request headers: {captured_supplier_id}")
-            if captured_identifier:
-                logger.info(f"✅ identifier already captured from request headers: {captured_identifier}")
-
-            # ── Step 3: Fast API call — getSupplierDetails (~1s, most reliable) ──
-            if not captured_supplier_id and captured_identifier:
-                logger.info(f"Calling getSupplierDetails API (identifier={captured_identifier})...")
+            # ── Step 2: Call /api/container/supplier/getUser (most reliable) ──
+            if not captured_supplier_id or not captured_identifier:
+                logger.info("Calling /api/container/supplier/getUser...")
                 try:
                     api_result = page.evaluate("""
-                        async (identifier) => {
+                        async () => {
                             try {
-                                const resp = await fetch('/api/container/supplier/getSupplierDetails', {
+                                const resp = await fetch('/api/container/supplier/getUser', {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ identifier }),
+                                    headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                                    body: JSON.stringify({}),
+                                    credentials: 'include',
                                 });
                                 if (!resp.ok) return { error: `HTTP ${resp.status}` };
                                 return await resp.json();
@@ -223,108 +153,92 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
                                 return { error: e.message };
                             }
                         }
-                    """, captured_identifier)
-                    if isinstance(api_result, dict):
-                        supplier = api_result.get("supplier", {})
-                        if isinstance(supplier, dict):
+                    """)
+                    logger.info(f"getUser response keys: {list(api_result.keys()) if isinstance(api_result, dict) else type(api_result)}")
+
+                    if isinstance(api_result, dict) and not api_result.get("error"):
+                        suppliers = api_result.get("suppliers", [])
+                        if suppliers and isinstance(suppliers, list) and len(suppliers) > 0:
+                            supplier = suppliers[0]
                             sid = supplier.get("supplier_id")
+                            ident = supplier.get("identifier")
                             if sid:
                                 captured_supplier_id = str(sid)
-                                logger.info(f"✅ Captured supplier_id from getSupplierDetails: {captured_supplier_id}")
-                            ident = supplier.get("identifier")
-                            if ident and not captured_identifier:
+                                logger.info(f"✅ Captured supplier_id from getUser: {captured_supplier_id}")
+                            if ident:
                                 captured_identifier = str(ident)
-                                logger.info(f"✅ Captured identifier from getSupplierDetails: {captured_identifier}")
-                        elif api_result.get("error"):
-                            logger.warning(f"getSupplierDetails error: {api_result['error']}")
+                                logger.info(f"✅ Captured identifier from getUser: {captured_identifier}")
+                        else:
+                            logger.warning(f"getUser returned empty suppliers. Response: {json.dumps(api_result)[:500]}")
+                    elif isinstance(api_result, dict):
+                        logger.warning(f"getUser error: {api_result.get('error')}")
                 except Exception as e:
-                    logger.warning(f"getSupplierDetails call failed: {e}")
+                    logger.warning(f"getUser call failed: {e}")
 
-            # ── Step 4: Mixpanel cookie (fast, but unreliable on Azure) ──
-            if not captured_supplier_id:
+            # ── Step 3: Fallback — Mixpanel cookie ──
+            if not captured_supplier_id or not captured_identifier:
+                logger.info("Trying mixpanel cookie fallback...")
                 for cookie in cookies:
                     if cookie["name"].startswith("mp_a66867"):
                         try:
                             decoded = urllib.parse.unquote(cookie["value"])
                             data = json.loads(decoded)
                             sid = data.get("Supplier_id") or data.get("supplier_id")
-                            if sid:
+                            if sid and not captured_supplier_id:
                                 captured_supplier_id = str(sid)
                                 logger.info(f"✅ Captured supplier_id from mixpanel cookie: {captured_supplier_id}")
                             ident = data.get("Supplier_tag") or data.get("identifier")
                             if ident and not captured_identifier:
-                                captured_identifier = ident
+                                captured_identifier = str(ident)
                                 logger.info(f"✅ Captured identifier from mixpanel cookie: {captured_identifier}")
                         except (json.JSONDecodeError, KeyError) as e:
                             logger.warning(f"Could not parse mixpanel cookie: {e}")
 
-            # ── Step 5: Last resort — navigate to catalog page to trigger API calls ──
+            # ── Step 4: Last resort — navigate to catalogs and retry getUser ──
             if not captured_supplier_id or not captured_identifier:
-                logger.info("Navigating to catalogs page to trigger API calls...")
+                logger.info("Navigating to catalogs page and retrying getUser...")
                 try:
                     page.goto(
                         "https://supplier.meesho.com/panel/v3/new/cataloging",
                         wait_until="networkidle", timeout=30000,
                     )
                     logger.info("Catalog page loaded (networkidle)")
-                except Exception as e:
-                    logger.warning(f"Navigation to catalogs: {e}")
+                    time.sleep(2)
 
-                # Catalog navigation fires request listener → identifier captured
-                # Retry getSupplierDetails now that we likely have a valid identifier
-                if not captured_supplier_id and captured_identifier:
-                    logger.info(f"Retrying getSupplierDetails with identifier={captured_identifier}...")
-                    try:
-                        api_result = page.evaluate("""
-                            async (identifier) => {
-                                try {
-                                    const resp = await fetch('/api/container/supplier/getSupplierDetails', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ identifier }),
-                                    });
-                                    if (!resp.ok) return { error: `HTTP ${resp.status}` };
-                                    return await resp.json();
-                                } catch (e) {
-                                    return { error: e.message };
-                                }
+                    api_result = page.evaluate("""
+                        async () => {
+                            try {
+                                const resp = await fetch('/api/container/supplier/getUser', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                                    body: JSON.stringify({}),
+                                    credentials: 'include',
+                                });
+                                if (!resp.ok) return { error: `HTTP ${resp.status}` };
+                                return await resp.json();
+                            } catch (e) {
+                                return { error: e.message };
                             }
-                        """, captured_identifier)
-                        if isinstance(api_result, dict):
-                            supplier = api_result.get("supplier", {})
-                            if isinstance(supplier, dict):
-                                sid = supplier.get("supplier_id")
-                                if sid:
-                                    captured_supplier_id = str(sid)
-                                    logger.info(f"✅ Captured supplier_id from getSupplierDetails (retry): {captured_supplier_id}")
-                            elif api_result.get("error"):
-                                logger.warning(f"getSupplierDetails retry error: {api_result['error']}")
-                    except Exception as e:
-                        logger.warning(f"getSupplierDetails retry failed: {e}")
-
-                # Poll cookies for up to 8s (fallback if API didn't work)
-                if not captured_supplier_id:
-                    poll_start = time.time()
-                    while not captured_supplier_id and (time.time() - poll_start) < 8:
-                        time.sleep(1)
-                        logger.info(f"Polling cookies for supplier_id... ({int(time.time() - poll_start)}s)")
-                        ck = context.cookies(MEESHO_SUPPLIER_URL)
-                        for c in ck:
-                            if c["name"].startswith("mp_"):
-                                try:
-                                    decoded = urllib.parse.unquote(c["value"])
-                                    data = json.loads(decoded)
-                                    sid = data.get("Supplier_id") or data.get("supplier_id")
-                                    if sid:
-                                        captured_supplier_id = str(sid)
-                                        logger.info(f"✅ Captured supplier_id from cookie (poll): {captured_supplier_id}")
-                                    ident = data.get("Supplier_tag") or data.get("identifier")
-                                    if ident and not captured_identifier:
-                                        captured_identifier = ident
-                                except (json.JSONDecodeError, KeyError):
-                                    pass
-                        if captured_supplier_id:
-                            break
+                        }
+                    """)
+                    if isinstance(api_result, dict) and not api_result.get("error"):
+                        suppliers = api_result.get("suppliers", [])
+                        if suppliers and isinstance(suppliers, list) and len(suppliers) > 0:
+                            supplier = suppliers[0]
+                            sid = supplier.get("supplier_id")
+                            ident = supplier.get("identifier")
+                            if sid and not captured_supplier_id:
+                                captured_supplier_id = str(sid)
+                                logger.info(f"✅ Captured supplier_id from getUser (retry): {captured_supplier_id}")
+                            if ident and not captured_identifier:
+                                captured_identifier = str(ident)
+                                logger.info(f"✅ Captured identifier from getUser (retry): {captured_identifier}")
+                        else:
+                            logger.warning(f"getUser retry returned empty suppliers. Response: {json.dumps(api_result)[:500]}")
+                    elif isinstance(api_result, dict):
+                        logger.warning(f"getUser retry error: {api_result.get('error')}")
+                except Exception as e:
+                    logger.warning(f"getUser retry failed: {e}")
 
             browser.close()
 
