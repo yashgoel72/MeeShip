@@ -2,14 +2,23 @@
 Standalone Playwright script for Meesho login capture.
 This runs as a separate process to avoid asyncio conflicts with uvicorn.
 
-Based on working POC in scripts/meesho_playwright_poc.py
+Supports TWO modes:
+  1. PROGRAMMATIC (default):  Receives email + password as args, fills the form
+                              automatically. Uses headed mode (with Xvfb on Azure)
+                              to bypass Akamai bot detection.
+  2. MANUAL (legacy):        Opens browser for user to type credentials manually.
 
 Usage:
+    # Programmatic mode
+    python meesho_browser_runner.py <output_file> --email <email> --password <pw>
+
+    # Manual mode (legacy)
     python meesho_browser_runner.py <output_file>
-    
+
 Writes JSON to output_file with captured credentials.
 """
 
+import argparse
 import json
 import sys
 import time
@@ -23,167 +32,136 @@ MEESHO_LOGIN_URL = "https://supplier.meesho.com/panel/v3/new/root/login"
 MEESHO_SUPPLIER_URL = "https://supplier.meesho.com"
 
 
-def run_meesho_login(output_file: str):
-    """Run Meesho login flow and capture credentials."""
+def run_meesho_login(output_file: str, email: str = None, password: str = None):
+    """Run Meesho login flow and capture credentials.
+
+    If *email* and *password* are provided the form is filled automatically
+    (programmatic mode).  Otherwise a visible browser opens for the user to
+    log in manually (legacy mode).
+    """
+    programmatic = bool(email and password)
+    logger.info(f"Starting Meesho login in {'PROGRAMMATIC' if programmatic else 'MANUAL'} mode")
+
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        result = {"success": False, "error": "Playwright not installed"}
-        with open(output_file, 'w') as f:
-            json.dump(result, f)
+        _write_result(output_file, {"success": False, "error": "Playwright not installed"})
         return
-    
+
     captured_supplier_id = None
     captured_identifier = None
     captured_connect_sid = None
     captured_browser_id = None
-    
+
     try:
         with sync_playwright() as p:
-            # Launch visible browser
+            # Always use headed mode — Akamai blocks headless Chromium.
+            # On Azure Linux, Xvfb provides a virtual display.
             browser = p.chromium.launch(
                 headless=False,
                 args=[
                     "--start-maximized",
                     "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
                 ]
             )
-            
+
             context = browser.new_context(
                 viewport={"width": 1280, "height": 900},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/131.0.0.0 Safari/537.36"
+                ),
             )
-            
+
             page = context.new_page()
-            
-            # Intercept requests to capture headers (as backup)
+
+            # Intercept requests to capture headers (backup method)
             def handle_request(request):
                 nonlocal captured_supplier_id, captured_identifier
-                
                 if "catalogingapi" in request.url or "supplier.meesho.com" in request.url:
                     headers = request.headers
-                    if "supplier-id" in headers and headers["supplier-id"]:
+                    if headers.get("supplier-id"):
                         captured_supplier_id = headers["supplier-id"]
                         logger.info(f"Captured supplier-id from headers: {captured_supplier_id}")
-                    if "identifier" in headers and headers["identifier"]:
+                    if headers.get("identifier"):
                         captured_identifier = headers["identifier"]
                         logger.info(f"Captured identifier from headers: {captured_identifier}")
-            
+
             page.on("request", handle_request)
-            
+
             # Navigate to Meesho supplier login
             try:
                 page.goto(MEESHO_LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
             except Exception as e:
                 logger.warning(f"Initial navigation warning: {e}")
-            
-            logger.info("Navigated to Meesho login page - please log in...")
-            
-            # Wait for successful login - use same detection as POC
-            login_success = False
-            max_wait = 300  # 5 minutes max
-            check_interval = 3
-            waited = 0
-            
-            while waited < max_wait:
-                time.sleep(check_interval)
-                waited += check_interval
-                
-                current_url = page.url
-                logger.info(f"[{waited}s] Current URL: {current_url}")
-                
-                # Detection method 1: URL changed to dashboard/panel (not login)
-                if "/panel/" in current_url and "/login" not in current_url:
-                    logger.info("✅ Dashboard URL detected!")
-                    login_success = True
-                    time.sleep(2)  # Let page fully load
-                    break
-                
-                # Detection method 2: connect.sid cookie exists (backup - this is key!)
-                cookies = context.cookies(MEESHO_SUPPLIER_URL)
-                for cookie in cookies:
-                    if cookie["name"] == "connect.sid":
-                        logger.info(f"✅ connect.sid cookie found!")
-                        login_success = True
-                        time.sleep(2)
-                        break
-                
-                if login_success:
-                    break
-                
-                # Detection method 3: headers captured from API calls
-                if captured_supplier_id and captured_identifier:
-                    logger.info("✅ Login detected via captured headers!")
-                    login_success = True
-                    break
-            
+
+            logger.info("Navigated to Meesho login page")
+
+            # ── Login ───────────────────────────────────────────────
+            if programmatic:
+                login_success = _do_programmatic_login(page, context, email, password)
+            else:
+                login_success = _wait_for_manual_login(page, context)
+
             if not login_success:
-                result = {"success": False, "error": "Login timeout - please log in within 5 minutes"}
+                _write_result(output_file, {"success": False, "error": "Login failed or timed out"})
                 browser.close()
-                with open(output_file, 'w') as f:
-                    json.dump(result, f)
                 return
-            
+
             logger.info("Login successful! Extracting credentials...")
-            
-            # Give time for cookies to be set
-            time.sleep(3)
-            
-            # Get ALL cookies from the context (this is the key advantage of Playwright!)
+            time.sleep(3)  # Let cookies settle
+
+            # ── Extract credentials from cookies ────────────────────
             cookies = context.cookies(MEESHO_SUPPLIER_URL)
             logger.info(f"Found {len(cookies)} cookies")
-            
+
             for cookie in cookies:
-                cookie_name = cookie["name"]
-                http_only = "🔒" if cookie.get("httpOnly") else "  "
-                logger.info(f"  {http_only} {cookie_name}")
-                
-                # connect.sid - the session cookie (HttpOnly!)
-                if cookie_name == "connect.sid":
+                name = cookie["name"]
+
+                if name == "connect.sid":
                     captured_connect_sid = cookie["value"]
-                    logger.info(f"    ✅ Captured connect.sid")
-                
-                # browser_id
-                elif cookie_name == "browser_id":
+                    logger.info("✅ Captured connect.sid")
+                elif name == "browser_id":
                     captured_browser_id = cookie["value"]
-                    logger.info(f"    ✅ Captured browser_id: {captured_browser_id}")
-                
-                # mixpanel cookie - contains supplier_id and identifier
-                elif cookie_name.startswith("mp_a66867"):
+                    logger.info(f"✅ Captured browser_id: {captured_browser_id}")
+                elif name.startswith("mp_a66867"):
                     try:
                         decoded = urllib.parse.unquote(cookie["value"])
                         data = json.loads(decoded)
-                        
-                        supplier_id = data.get("Supplier_id") or data.get("supplier_id")
-                        identifier = data.get("Supplier_tag") or data.get("identifier")
-                        
-                        if supplier_id:
-                            captured_supplier_id = str(supplier_id)
-                            logger.info(f"    ✅ Captured supplier_id from mixpanel: {captured_supplier_id}")
-                        if identifier:
-                            captured_identifier = identifier
-                            logger.info(f"    ✅ Captured identifier from mixpanel: {captured_identifier}")
+                        sid = data.get("Supplier_id") or data.get("supplier_id")
+                        ident = data.get("Supplier_tag") or data.get("identifier")
+                        if sid:
+                            captured_supplier_id = str(sid)
+                            logger.info(f"✅ Captured supplier_id: {captured_supplier_id}")
+                        if ident:
+                            captured_identifier = ident
+                            logger.info(f"✅ Captured identifier: {captured_identifier}")
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"    ⚠️ Could not parse mixpanel cookie: {e}")
-            
-            # If we didn't get supplier_id from mixpanel, try navigating to catalogs
+                        logger.warning(f"Could not parse mixpanel cookie: {e}")
+
+            # Fallback: navigate to catalogs page to trigger API calls
             if not captured_supplier_id or not captured_identifier:
                 logger.info("Navigating to catalogs page to trigger API calls...")
                 try:
-                    page.goto("https://supplier.meesho.com/panel/v3/new/cataloging", wait_until="networkidle", timeout=30000)
+                    page.goto(
+                        "https://supplier.meesho.com/panel/v3/new/cataloging",
+                        wait_until="networkidle", timeout=30000,
+                    )
                     time.sleep(3)
                 except Exception as e:
                     logger.warning(f"Navigation to catalogs failed: {e}")
-            
+
             browser.close()
-            
-            # Check we have everything
+
+            # Build result
             if not captured_connect_sid:
                 result = {"success": False, "error": "Could not capture connect.sid cookie"}
             elif not captured_supplier_id:
-                result = {"success": False, "error": "Could not capture supplier_id - check mixpanel cookie"}
+                result = {"success": False, "error": "Could not capture supplier_id"}
             elif not captured_identifier:
-                result = {"success": False, "error": "Could not capture identifier - check mixpanel cookie"}
+                result = {"success": False, "error": "Could not capture identifier"}
             else:
                 result = {
                     "success": True,
@@ -192,24 +170,127 @@ def run_meesho_login(output_file: str):
                     "connect_sid": captured_connect_sid,
                     "browser_id": captured_browser_id,
                 }
-                logger.info(f"✅ Success! Captured credentials for supplier {captured_supplier_id}")
-            
-            with open(output_file, 'w') as f:
-                json.dump(result, f)
-                
+                logger.info(f"✅ Captured credentials for supplier {captured_supplier_id}")
+
+            _write_result(output_file, result)
+
     except Exception as e:
         logger.error(f"Error: {e}")
         import traceback
         traceback.print_exc()
-        result = {"success": False, "error": str(e)}
-        with open(output_file, 'w') as f:
-            json.dump(result, f)
+        _write_result(output_file, {"success": False, "error": str(e)})
+
+
+# ============================================================================
+# Login helpers
+# ============================================================================
+
+def _do_programmatic_login(page, context, email: str, password: str) -> bool:
+    """Fill the Meesho login form and submit — no user interaction needed."""
+    logger.info("Programmatic login: waiting for form...")
+
+    # Wait for React form to render
+    try:
+        page.wait_for_selector("input", timeout=15000)
+    except Exception:
+        logger.warning("Form slow to render, extra wait...")
+        time.sleep(5)
+        if not page.query_selector_all("input"):
+            logger.error("No input fields found on login page")
+            return False
+
+    # Fill email / phone
+    for sel in ['input[name="emailOrPhone"]', 'input[type="email"]',
+                'input[name="email"]', 'input[type="text"]', 'input[type="tel"]']:
+        try:
+            if page.query_selector(sel):
+                page.fill(sel, email)
+                logger.info(f"Email filled ({sel})")
+                break
+        except Exception:
+            continue
+    else:
+        logger.error("Could not find email field")
+        return False
+
+    time.sleep(0.5)
+
+    # Fill password
+    for sel in ['input[name="password"]', 'input[type="password"]']:
+        try:
+            if page.query_selector(sel):
+                page.fill(sel, password)
+                logger.info(f"Password filled ({sel})")
+                break
+        except Exception:
+            continue
+    else:
+        logger.error("Could not find password field")
+        return False
+
+    time.sleep(0.5)
+
+    # Click submit
+    for sel in ['button[type="submit"]', 'button:has-text("Login")',
+                'button:has-text("Log In")', 'button:has-text("Continue")']:
+        try:
+            el = page.query_selector(sel)
+            if el and el.is_visible():
+                el.click()
+                logger.info(f"Submit clicked ({sel})")
+                break
+        except Exception:
+            continue
+    else:
+        page.keyboard.press("Enter")
+        logger.info("Pressed Enter as submit fallback")
+
+    return _poll_for_login(page, context, timeout=30)
+
+
+def _wait_for_manual_login(page, context) -> bool:
+    """Wait for user to manually log in (legacy mode, 5-min timeout)."""
+    logger.info("Please log in manually in the browser window...")
+    return _poll_for_login(page, context, timeout=300)
+
+
+def _poll_for_login(page, context, timeout: int) -> bool:
+    """Poll for login success (URL change or connect.sid cookie)."""
+    waited = 0
+    while waited < timeout:
+        time.sleep(2)
+        waited += 2
+
+        url = page.url
+        if waited % 10 == 0:
+            logger.info(f"[{waited}s] URL: {url}")
+
+        if "/panel/" in url and "/login" not in url:
+            logger.info("✅ Dashboard URL detected!")
+            time.sleep(2)
+            return True
+
+        cookies = context.cookies(MEESHO_SUPPLIER_URL)
+        if any(c["name"] == "connect.sid" for c in cookies):
+            logger.info("✅ connect.sid cookie found!")
+            time.sleep(2)
+            return True
+
+    logger.error(f"Login timed out after {timeout}s")
+    return False
+
+
+def _write_result(output_file: str, result: dict):
+    """Write result JSON to the output file."""
+    with open(output_file, "w") as f:
+        json.dump(result, f)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python meesho_browser_runner.py <output_file>")
-        sys.exit(1)
-    
-    output_file = sys.argv[1]
-    run_meesho_login(output_file)
+    parser = argparse.ArgumentParser(description="Meesho login capture")
+    parser.add_argument("output_file", help="Path to write JSON result")
+    parser.add_argument("--email", help="Meesho email for programmatic login")
+    parser.add_argument("--password", help="Meesho password for programmatic login")
+    args = parser.parse_args()
+
+    run_meesho_login(args.output_file, email=args.email, password=args.password)

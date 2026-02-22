@@ -153,6 +153,20 @@ class ShippingCostError(BaseModel):
 # Playwright Session Schemas
 # ============================================================================
 
+class PlaywrightLoginRequest(BaseModel):
+    """Request to start a Playwright login session with email + password."""
+    email: str = Field(..., description="Meesho supplier account email")
+    password: str = Field(..., description="Meesho supplier account password")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "email": "seller@example.com",
+                "password": "mypassword"
+            }
+        }
+
+
 class PlaywrightSessionResponse(BaseModel):
     """Response when starting a Playwright browser session."""
     session_id: str = Field(..., description="Unique session ID for polling")
