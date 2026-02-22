@@ -211,11 +211,14 @@ export const validateMeeshoSession = async (): Promise<SessionValidationResponse
 // ============================================================================
 
 /**
- * Start a Playwright browser session for Meesho login.
- * A browser window will open on the server where user can log in.
+ * Start a Playwright login session with Meesho credentials.
+ * The backend will fill the login form automatically and capture session cookies.
  */
-export const startPlaywrightSession = async (): Promise<PlaywrightSessionResponse> => {
-  const response = await apiRequest<PlaywrightSessionResponse>('/api/meesho/playwright/start', { method: 'POST' });
+export const startPlaywrightSession = async (email: string, password: string): Promise<PlaywrightSessionResponse> => {
+  const response = await apiRequest<PlaywrightSessionResponse>('/api/meesho/playwright/start', {
+    method: 'POST',
+    data: { email, password },
+  });
   return response.data;
 };
 

@@ -24,6 +24,7 @@ from app.schemas.meesho import (
     ShippingCostRequest,
     ShippingCostResponse,
     ShippingCostError,
+    PlaywrightLoginRequest,
     PlaywrightSessionResponse,
     PlaywrightSessionStatus,
 )
@@ -238,29 +239,38 @@ async def calculate_shipping_cost(
 
 @router.post("/playwright/start", response_model=PlaywrightSessionResponse)
 async def start_playwright_session(
+    request: PlaywrightLoginRequest,
     current_user: User = Depends(get_current_user),
 ):
     """
     Start a Playwright browser session for Meesho login.
-    
-    This opens a browser window where the user can log into their Meesho account.
-    Credentials including HttpOnly cookies are captured automatically.
-    
+
+    The user provides their Meesho email + password.  A headless Playwright
+    browser navigates to the Meesho login page, fills the form automatically,
+    and captures session cookies (including the HttpOnly ``connect.sid``).
+
+    On Azure the browser runs in headed mode inside Xvfb so that Akamai's
+    bot detection is bypassed.
+
     Returns a session_id to poll for status.
     """
     try:
-        session_id = await MeeshoPlaywrightService.create_session(str(current_user.id))
-        
+        session_id = await MeeshoPlaywrightService.create_session(
+            user_id=str(current_user.id),
+            email=request.email,
+            password=request.password,
+        )
+
         return PlaywrightSessionResponse(
             session_id=session_id,
             status="pending",
-            message="Browser window opening. Please log into your Meesho account."
+            message="Logging into Meesho… this takes about 10 seconds.",
         )
     except Exception as e:
         logger.error(f"Failed to start Playwright session: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to start browser session: {str(e)}"
+            detail=f"Failed to start login session: {str(e)}"
         )
 
 
