@@ -252,7 +252,7 @@ class RazorpayService:
 
         # Update order
         order.razorpay_payment_id = razorpay_payment_id
-        order.status = OrderStatus.PAID
+        order.status = OrderStatus.PAID.value
 
         # Get user and add credits
         result = await self.db.execute(
@@ -266,8 +266,8 @@ class RazorpayService:
         # Set credit expiration based on pack validity
         if order.pack_id and order.pack_id in CREDIT_PACKS:
             validity_days = CREDIT_PACKS[order.pack_id].get("validity_days", 30)
-            from datetime import timedelta
-            new_expiry = datetime.utcnow() + timedelta(days=validity_days)
+            from datetime import timedelta, timezone
+            new_expiry = datetime.now(timezone.utc) + timedelta(days=validity_days)
             # Extend expiry if user already has credits with later expiry
             if user.credits_expires_at is None or new_expiry > user.credits_expires_at:
                 user.credits_expires_at = new_expiry
@@ -385,8 +385,8 @@ class RazorpayService:
         # Set credit expiration based on pack validity
         if order.pack_id and order.pack_id in CREDIT_PACKS:
             validity_days = CREDIT_PACKS[order.pack_id].get("validity_days", 30)
-            from datetime import timedelta
-            new_expiry = datetime.utcnow() + timedelta(days=validity_days)
+            from datetime import timedelta, timezone
+            new_expiry = datetime.now(timezone.utc) + timedelta(days=validity_days)
             if user.credits_expires_at is None or new_expiry > user.credits_expires_at:
                 user.credits_expires_at = new_expiry
 

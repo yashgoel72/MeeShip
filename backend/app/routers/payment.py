@@ -184,6 +184,17 @@ async def verify_payment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "ORDER_NOT_FOUND", "message": "Order not found"}
         )
+    except Exception as e:
+        import traceback
+        logger.error(
+            f"Unexpected error in verify_payment for user {current_user.id}, "
+            f"order {request.razorpay_order_id}: {type(e).__name__}: {e}\n"
+            f"{traceback.format_exc()}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "INTERNAL_ERROR", "message": str(e)}
+        )
 
 
 @router.post("/webhook")
