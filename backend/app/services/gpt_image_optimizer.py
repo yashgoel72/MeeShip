@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class GptImage15Optimizer:
     """Azure OpenAI gpt-image-1.5-based optimizer.
 
-    Generates a single 1024x1536 2x3 grid image from the input image using
+    Generates a single 1024x1024 2x2 grid image from the input image using
     the Images Edits endpoint.
     """
 
@@ -147,39 +147,34 @@ class GptImage15Optimizer:
             return image_bytes  # Return original if processing fails
 
     @staticmethod
-    def _grid_prompt_2x3_compact() -> str:
-        """Prompt with 4 shipping-optimized + 2 lifestyle tiles.
+    def _grid_prompt_2x2_compact() -> str:
+        """Prompt with 4 shipping-optimized tiles on a 2x2 grid.
         
         Tiles 1-4: Clean product shots for Meesho shipping estimation
-        Tiles 5-6: Lifestyle/scenic shots for marketing appeal
         """
         return (
             "🎯 PURPOSE: Generate e-commerce product images for Meesho sellers in India.\n"
             "Meesho calculates shipping costs based on how much space the product takes in the image.\n"
             "SMALLER product in frame = Meesho estimates SMALLER package = LOWER shipping cost for sellers!\n"
             "Your goal: Create professional images with COMPACT product placement to minimize shipping estimates.\n\n"
-            "Generate ONE 1024x1536px image containing a PERFECT 2x3 grid of 6 tiles.\n\n"
+            "Generate ONE 1024x1024px image containing a PERFECT 2x2 grid of 4 tiles.\n\n"
             "⚠️ CRITICAL GRID REQUIREMENTS (MUST FOLLOW EXACTLY):\n"
-            "- Total image: EXACTLY 1024px wide × 1536px tall\n"
-            "- Grid: 2 columns × 3 rows = 6 tiles\n"
+            "- Total image: EXACTLY 1024px wide × 1024px tall (SQUARE!)\n"
+            "- Grid: 2 columns × 2 rows = 4 tiles\n"
             "- Each tile: EXACTLY 512px × 512px (no exceptions!)\n"
             "- Tiles MUST be perfectly aligned: NO gaps, NO borders, NO overlaps, NO padding between tiles\n"
-            "- Grid lines at: x=512 (vertical divider), y=512 and y=1024 (horizontal dividers)\n"
+            "- Grid lines at: x=512 (vertical divider), y=512 (horizontal divider)\n"
             "- Each tile MUST stay within its 512×512 boundary - content cannot bleed across tiles\n\n"
             "GLOBAL RULES:\n"
             "- Preserve product identity 100% (shape, color, texture, branding)\n"
             "- No text, watermarks, or logos added\n"
             "- Each tile MUST show a DIFFERENT angle/perspective\n\n"
-            "=== TILES 1-4: SHIPPING-OPTIMIZED (SMALL product, MAXIMUM whitespace) ===\n"
+            "=== ALL 4 TILES: SHIPPING-OPTIMIZED (SMALL product, MAXIMUM whitespace) ===\n"
             "🎯 KEY: Product must be SMALL (40-50% of tile MAX) with LOTS of empty background!\n\n"
             "1) TOP-LEFT [0,0 to 512,512]: HERO WHITE FRONT - Pure white bg, product FRONT VIEW, SMALL & centered (40-45%), maximum white padding\n"
-            "2) TOP-RIGHT [512,0 to 1024,512]: TOP VIEW - White bg, product from ABOVE, COMPACT flat lay (40-45%), generous empty space\n"
-            "3) MIDDLE-LEFT [0,512 to 512,1024]: 3/4 ANGLE - White bg, product at 45° angle, SMALL (40-50%), lots of breathing room\n"
-            "4) MIDDLE-RIGHT [512,512 to 1024,1024]: DARK LUXURY - Deep black/charcoal gradient bg, product floating SMALL (40-50%), premium moody lighting with subtle spotlight\n\n"
-            "=== TILES 5-6: LIFESTYLE/SCENIC (marketing appeal) ===\n"
-            "Rules: Product 40-60% of tile, props/context/people allowed\n\n"
-            "5) BOTTOM-LEFT [0,1024 to 512,1536]: IN-USE LIFESTYLE - Product being USED by person in realistic setting\n"
-            "6) BOTTOM-RIGHT [512,1024 to 1024,1536]: STYLED SCENE - Product in aesthetic real-world context with props\n\n"
+            "2) TOP-RIGHT [512,0 to 1024,512]: 3/4 ANGLE - White bg, product at 45° angle, SMALL (40-50%), lots of breathing room\n"
+            "3) BOTTOM-LEFT [0,512 to 512,1024]: LIFESTYLE SCENE - Soft neutral bg, product in attractive real-world context, SMALL (40-50%), styled with subtle props\n"
+            "4) BOTTOM-RIGHT [512,512 to 1024,1024]: DARK LUXURY - Deep black/charcoal gradient bg, product floating SMALL (40-50%), premium moody lighting with subtle spotlight\n\n"
             "REMEMBER: Smaller product = lower shipping for Meesho sellers. Keep products COMPACT!"
         )
 
@@ -255,12 +250,12 @@ class GptImage15Optimizer:
         if not self.api_key:
             raise RuntimeError("AZURE_OPENAI_API_KEY is not configured")
 
-        size = "1024x1536"
+        size = "1024x1024"
         quality = "low"  # Low quality reduces output tokens by ~66% (1954 → 660)
         n = 1
 
         # Build prompt — inject category context if available
-        base_prompt = self._grid_prompt_2x3_compact()
+        base_prompt = self._grid_prompt_2x2_compact()
         category_fragment = None
         if pipeline_config:
             from app.services.category_prompts import get_category_prompt_fragment
@@ -451,5 +446,5 @@ class GptImage15Optimizer:
             out_bytes = raw
 
         base_metrics["output_size_bytes"] = len(out_bytes)
-        base_metrics["output_dimensions"] = [1024, 1536]
+        base_metrics["output_dimensions"] = [1024, 1024]
         return out_bytes, base_metrics
