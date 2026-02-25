@@ -161,6 +161,37 @@ class MeeshoAPIClient:
         if self._client:
             await self._client.aclose()
     
+    async def ping_session(self) -> Tuple[bool, Optional[str]]:
+        """
+        Lightweight session check using Meesho's notifications endpoint.
+        
+        Uses /api/container/notices/fetch-unread-count which is a tiny
+        request/response (~50 bytes) — much cheaper than getTransferPrice.
+        Returns 200 if session is alive, 401/463 if expired.
+        
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        ping_url = "https://supplier.meesho.com/api/container/notices/fetch-unread-count"
+        t0 = time.monotonic()
+        try:
+            response = await self._client.post(ping_url, json={})
+            duration_ms = (time.monotonic() - t0) * 1000
+
+            if response.status_code == 200:
+                api_logger.info("MEESHO_API | %-50s | %s | %3d | %7.0fms | result=session_alive", "notices/fetch-unread-count", "POST", response.status_code, duration_ms)
+                return True, None
+
+            error_map = {401: "Session expired", 463: "Session expired - token missing", 403: "Access denied - possible bot detection"}
+            error_msg = error_map.get(response.status_code, f"Unexpected status: {response.status_code}")
+            api_logger.warning("MEESHO_API | %-50s | %s | %3d | %7.0fms | error=%s", "notices/fetch-unread-count", "POST", response.status_code, duration_ms, error_msg)
+            return False, error_msg
+
+        except Exception as e:
+            duration_ms = (time.monotonic() - t0) * 1000
+            api_logger.error("MEESHO_API | %-50s | %s | ERR | %7.0fms | exception=%s", "notices/fetch-unread-count", "POST", duration_ms, e)
+            return False, str(e)
+
     async def validate_credentials(self) -> Tuple[bool, Optional[str]]:
         """
         Validate credentials by making a test API call.
@@ -518,6 +549,27 @@ class MeeshoService:
         async with MeeshoAPIClient(credentials) as client:
             is_valid, error = await client.validate_credentials()
             return is_valid, error
+
+    async def ping_meesho_session(self, user: User) -> Tuple[bool, Optional[str], Optional[str]]:
+        """
+        Fast session check using lightweight Meesho ping endpoint.
+        
+        Returns:
+            Tuple of (is_valid, error_message, error_code)
+            error_code is 'MEESHO_NOT_LINKED' | 'MEESHO_SESSION_EXPIRED' | None
+        """
+        if not self.is_linked(user):
+            return False, "Meesho account not linked. Please link your Meesho supplier account.", "MEESHO_NOT_LINKED"
+        
+        credentials = self._get_credentials(user)
+        if not credentials:
+            return False, "Failed to retrieve credentials.", "MEESHO_NOT_LINKED"
+        
+        async with MeeshoAPIClient(credentials) as client:
+            is_valid, error = await client.ping_session()
+            if is_valid:
+                return True, None, None
+            return False, error or "Meesho session expired. Please re-link your account.", "MEESHO_SESSION_EXPIRED"
     
     def _get_credentials(self, user: User) -> Optional[MeeshoCredentials]:
         """Get decrypted credentials for user."""

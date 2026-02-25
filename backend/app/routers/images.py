@@ -42,7 +42,7 @@ except Exception:
     FluxOptimizer = None
 from app.config import get_settings
 from app.services.trial_service import is_trial_upload_allowed
-from app.middlewares.auth import get_current_user, get_current_user_optional
+from app.middlewares.auth import get_current_user, get_current_user_optional, require_meesho_linked
 from app.services.meesho_service import MeeshoService
 
 router = APIRouter(prefix="/api/images", tags=["Images"])
@@ -313,19 +313,18 @@ async def optimize_image_endpoint(
     disable_fallback: Optional[bool] = Form(False),
     db: AsyncSession = Depends(get_db),
     minio_enabled: bool = Depends(get_minio_enabled),
-    current_user=Depends(get_current_user_optional),
+    current_user=Depends(require_meesho_linked),
 ):
-    # --- Credits enforcement ---
+    # --- Credits enforcement (auth + Meesho link required) ---
     is_trial_user = False
-    if current_user is not None:
-        if current_user.credits <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No credits remaining. Please purchase credits to continue."
-            )
-        # Deduct 1 credit
-        current_user.credits -= 1
-        await db.commit()
+    if current_user.credits <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No credits remaining. Please purchase credits to continue."
+        )
+    # Deduct 1 credit
+    current_user.credits -= 1
+    await db.commit()
     try:
         image_bytes = await file.read()
         dims = None
@@ -560,9 +559,11 @@ async def optimize_image_stream(
     sscat_breadcrumb: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     minio_enabled: bool = Depends(get_minio_enabled),
-    current_user=Depends(get_current_user_optional),
+    current_user=Depends(require_meesho_linked),
 ):
     """Streaming optimization endpoint that yields variants via Server-Sent Events.
+    
+    Requires authenticated user with a valid Meesho session.
     
     Returns SSE events:
     - status: {stage: "generating"|"processing"|"uploading", progress: 0-100, message: str}
@@ -588,17 +589,16 @@ async def optimize_image_stream(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid dimensions_cm format.")
 
-    # --- Credits enforcement ---
+    # --- Credits enforcement (auth + Meesho link required) ---
     is_trial_user = False
-    if current_user is not None:
-        if current_user.credits <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No credits remaining. Please purchase credits to continue."
-            )
-        # Deduct 1 credit
-        current_user.credits -= 1
-        await db.commit()
+    if current_user.credits <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No credits remaining. Please purchase credits to continue."
+        )
+    # Deduct 1 credit
+    current_user.credits -= 1
+    await db.commit()
 
     async def event_generator() -> AsyncGenerator[dict, None]:
         """Generate SSE events as variants are created and uploaded."""

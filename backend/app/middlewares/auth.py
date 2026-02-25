@@ -260,6 +260,35 @@ async def get_user_subscription(
     return result.scalar_one_or_none()
 
 
+async def require_meesho_linked(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    """
+    Dependency that ensures the user has a valid, active Meesho session.
+    
+    Makes a lightweight API call to Meesho to verify the session cookie
+    is still alive. Raises 403 with error codes:
+    - MEESHO_NOT_LINKED: user hasn't linked their Meesho account
+    - MEESHO_SESSION_EXPIRED: session cookie has expired
+    """
+    from app.services.meesho_service import MeeshoService
+    
+    meesho_service = MeeshoService(db)
+    is_valid, error_msg, error_code = await meesho_service.ping_meesho_session(current_user)
+    
+    if not is_valid:
+        logger.warning(f"Meesho session check failed for user {current_user.id}: {error_code} — {error_msg}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": error_code,
+                "message": error_msg,
+            },
+        )
+    return current_user
+
+
 def get_client_ip(request: Request) -> str:
     """
     Extract client IP address from request, considering proxies.

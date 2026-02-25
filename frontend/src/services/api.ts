@@ -74,6 +74,7 @@ export type StreamingError = {
   recoverable: boolean;
   variant_index?: number;
   stage_metrics?: Record<string, any>;
+  error_code?: string;
 };
 
 export type StreamingComplete = {
@@ -128,9 +129,25 @@ export const streamOptimization = (
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[SSE] Error response:', errorText);
+        
+        // Try to parse structured error (e.g. Meesho link/session errors)
+        let errorCode: string | undefined;
+        let errorMessage = `Server error: ${response.status} - ${errorText}`;
+        try {
+          const parsed = JSON.parse(errorText);
+          const detail = parsed?.detail;
+          if (detail && typeof detail === 'object') {
+            errorCode = detail.error;
+            errorMessage = detail.message || errorMessage;
+          } else if (typeof detail === 'string') {
+            errorMessage = detail;
+          }
+        } catch { /* not JSON, use raw text */ }
+        
         callbacks.onError?.({
-          message: `Server error: ${response.status} - ${errorText}`,
+          message: errorMessage,
           recoverable: false,
+          error_code: errorCode,
         });
         return;
       }
