@@ -219,9 +219,27 @@ export default function LandingScreen() {
     setMeeshoSessionExpired(false)
   }
 
+  // Listen for meesho-link-required events from streaming hook (e.g. 403 from backend)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.reason === 'MEESHO_NOT_LINKED') {
+        setMeeshoLinked(false)
+      } else if (detail?.reason === 'MEESHO_SESSION_EXPIRED') {
+        setMeeshoSessionExpired(true)
+      }
+      setShowMeeshoModal(true)
+    }
+    window.addEventListener('meesho-link-required', handler)
+    return () => window.removeEventListener('meesho-link-required', handler)
+  }, [])
+
   const canGenerate = useMemo(() => {
     return !!originalFile && !!compressedFile && !compressing && sscatId !== null
   }, [compressedFile, compressing, originalFile, sscatId])
+
+  // Meesho must be linked with a valid session to generate
+  const meeshoReady = meeshoLinked === true && !meeshoSessionExpired
 
   // Show Meesho banner: not linked, or session expired
   const showMeeshoBanner = isAuthenticated && meeshoLinked !== null && (!meeshoLinked || meeshoSessionExpired)
@@ -423,13 +441,18 @@ export default function LandingScreen() {
 
               <motion.button
                 type="button"
-                whileHover={canGenerate && !compressing ? { scale: 1.02, y: -2 } : {}}
-                whileTap={canGenerate && !compressing ? { scale: 0.98 } : {}}
+                whileHover={canGenerate && !compressing && meeshoReady ? { scale: 1.02, y: -2 } : {}}
+                whileTap={canGenerate && !compressing && meeshoReady ? { scale: 0.98 } : {}}
                 onClick={() => {
                   // Skip auth check in development
                   const isDev = import.meta.env.DEV
                   if (!isDev && !isAuthenticated) {
                     setSignInOpen(true)
+                    return
+                  }
+                  // Require Meesho account link
+                  if (!meeshoReady) {
+                    setShowMeeshoModal(true)
                     return
                   }
                   if (!canGenerate || !originalFile) return
@@ -439,7 +462,9 @@ export default function LandingScreen() {
                 className={
                   'group w-full rounded-2xl px-6 py-4 text-lg font-bold transition-all duration-300 ' +
                   (canGenerate && !compressing
-                    ? 'bg-gradient-to-r from-meesho via-pink-500 to-purple-600 text-white shadow-xl shadow-meesho/25 hover:shadow-2xl hover:shadow-meesho/30'
+                    ? meeshoReady
+                      ? 'bg-gradient-to-r from-meesho via-pink-500 to-purple-600 text-white shadow-xl shadow-meesho/25 hover:shadow-2xl hover:shadow-meesho/30'
+                      : 'bg-gradient-to-r from-pink-300 via-pink-400 to-purple-400 text-white shadow-lg cursor-pointer'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none')
                 }
               >
@@ -455,7 +480,12 @@ export default function LandingScreen() {
                   ) : (
                     <>
                       <span className="text-xl">⚡</span>
-                      {(user?.credits ?? 0) > 0 ? 'Find My Lowest Shipping' : 'Try Free — See Your Savings'}
+                      {!isAuthenticated
+                        ? 'Sign in to Get Started'
+                        : !meeshoReady
+                          ? '🔗 Link Meesho Account to Generate'
+                          : (user?.credits ?? 0) > 0 ? 'Find My Lowest Shipping' : 'Try Free — See Your Savings'
+                      }
                       <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>

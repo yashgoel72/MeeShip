@@ -107,6 +107,21 @@ export function useStreamingOptimization() {
           },
 
           onError: (error: StreamingError) => {
+            // Check for Meesho link/session errors — trigger re-link flow
+            if (error.error_code === 'MEESHO_NOT_LINKED' || error.error_code === 'MEESHO_SESSION_EXPIRED') {
+              // Reset screen back to landing so user isn't stuck on processing
+              setScreen('landing')
+              setError(error.error_code === 'MEESHO_NOT_LINKED'
+                ? 'Please link your Meesho account before generating images.'
+                : 'Your Meesho session has expired. Please re-link your account.'
+              )
+              // Emit a custom event so LandingScreen can open the Meesho link modal
+              window.dispatchEvent(new CustomEvent('meesho-link-required', {
+                detail: { reason: error.error_code }
+              }))
+              trackEvent('meesho_link_required', { reason: error.error_code })
+              return
+            }
             if (error.recoverable) {
               // Non-fatal error, just log it
               addStreamingError(error.message)

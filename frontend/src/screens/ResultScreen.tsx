@@ -219,16 +219,17 @@ export default function ResultScreen() {
     }
   }
 
-  const downloadAll = async () => {
+  const downloadAll = async (variantList?: typeof variants) => {
+    const toDownload = variantList || variants
     setDownloadingAll(true)
-    trackEvent('download_all_clicked')
-    for (let i = 0; i < variants.length; i++) {
-      const v = variants[i]
+    trackEvent('download_all_clicked', { count: toDownload.length })
+    for (let i = 0; i < toDownload.length; i++) {
+      const v = toDownload[i]
       await download(v.url, `meeship_${v.tile_name.replace(/\s+/g, '_')}_${v.variant_label.replace(/\s+/g, '_')}.jpg`)
       await new Promise((r) => setTimeout(r, 200))
     }
     setDownloadingAll(false)
-    trackEvent('download_all_success', { count: variants.length })
+    trackEvent('download_all_success', { count: toDownload.length })
   }
 
   return (
@@ -352,7 +353,7 @@ export default function ResultScreen() {
               </div>
               <button
                 type="button"
-                onClick={downloadAll}
+                onClick={() => downloadAll(shippingSummary.top10)}
                 disabled={downloadingAll || downloadState === 'downloading'}
                 className="hidden sm:flex items-center gap-2 rounded-xl bg-meesho px-4 py-2.5 text-sm font-semibold text-white hover:bg-meesho/90 transition-colors disabled:opacity-60"
               >
@@ -426,7 +427,7 @@ export default function ResultScreen() {
               </div>
               <button
                 type="button"
-                onClick={downloadAll}
+                onClick={() => downloadAll()}
                 disabled={downloadingAll || downloadState === 'downloading'}
                 className="hidden sm:flex items-center gap-2 rounded-xl bg-meesho px-4 py-2.5 text-sm font-semibold text-white hover:bg-meesho/90 transition-colors disabled:opacity-60"
               >

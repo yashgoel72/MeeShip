@@ -50,6 +50,7 @@ jobs:
         with:
           name: python-app
           path: release.zip
+          retention-days: 1
 
   deploy:
     runs-on: ubuntu-latest
