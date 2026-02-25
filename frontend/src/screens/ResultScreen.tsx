@@ -13,14 +13,12 @@ const useSscatBreadcrumb = () => useAppStore((s) => s.sscatBreadcrumb)
 import { trackEvent } from '../utils/posthog.ts'
 import { useAuth } from '../context/AuthContext'
 
-// Tile names for grouping - 4 Shipping + 2 Lifestyle
+// Tile names for grouping - 4 tiles from 2x2 grid
 const TILE_NAMES = [
-  'Hero Front View',
-  'Top View',
+  'Hero White Front',
   '3/4 Angle',
+  'Lifestyle Scene',
   'Dark Luxury',
-  'In-Use Lifestyle',
-  'Styled Scene',
 ]
 
 function ConfettiBurst() {
@@ -119,15 +117,15 @@ export default function ResultScreen() {
       }))
     }
     // Fallback: convert flat URLs to variant format (5 variants per tile)
-    // All tiles get: Standard, Cool, Warm, Zoom Out, High Contrast
+    // All tiles get: Standard, Cool, Warm, Zoom Out, Sticker
     const urls = result?.variant_blob_urls
     if (!urls || urls.length === 0) return []
     return urls.map((u, idx) => {
       const tileIdx = Math.floor(idx / 5)
       const variantIdx = idx % 5
       
-      const variantTypes = ['standard', 'detail_focus', 'warm_minimal', 'hero_compact', 'high_contrast']
-      const variantLabels = ['Standard', 'Cool Minimal', 'Warm Minimal', 'Zoom Out', 'High Contrast']
+      const variantTypes = ['standard', 'detail_focus', 'warm_minimal', 'hero_compact', 'sticker']
+      const variantLabels = ['Standard', 'Cool Minimal', 'Warm Minimal', 'Zoom Out', 'Sticker Badge']
       
       return {
         url: proxyMinioUrl(u),
@@ -177,7 +175,7 @@ export default function ResultScreen() {
   }, [variants])
 
   const isStreaming = streamingProgress.stage !== 'idle' && streamingProgress.stage !== 'complete' && streamingProgress.stage !== 'error'
-  const totalExpected = streamingProgress.total || 30
+  const totalExpected = streamingProgress.total || 20
   const completed = variants.length
 
   if (!result && !isStreaming) {

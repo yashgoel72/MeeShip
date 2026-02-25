@@ -108,20 +108,20 @@ def _crop_grid_variants(
     output_px_candidates: Tuple[int, ...] = (1200,1400),
     target_kb_range: Tuple[int, int] = (150, 300),
 ) -> List[bytes]:
-    """Crop a 1024x1536 grid image into 6 variants.
+    """Crop a 1024x1024 grid image into 4 variants.
 
-    Assumes a perfect 2x3 grid (6 tiles) covering the full canvas.
-    - Crops 6 square tiles from the 2x3 grid (tile_px source crop)
+    Assumes a perfect 2x2 grid (4 tiles) covering the full canvas.
+    - Crops 4 square tiles from the 2x2 grid (tile_px source crop)
     - Upscales each tile into the 1000–2000px band
     - Encodes each variant as JPEG targeting ~150–300KB (best-effort)
     """
     from PIL import Image
 
     img = Image.open(io.BytesIO(grid_jpeg_bytes)).convert("RGB")
-    if img.size != (1024, 1536):
-        img = img.resize((1024, 1536), resample=Image.Resampling.LANCZOS)
+    if img.size != (1024, 1024):
+        img = img.resize((1024, 1024), resample=Image.Resampling.LANCZOS)
 
-    cols, rows = 2, 3
+    cols, rows = 2, 2
     tile_px = min(img.size[0] // cols, img.size[1] // rows)
 
     min_bytes = target_kb_range[0] * 1024
@@ -482,7 +482,7 @@ async def optimize_image_endpoint(
                 blob_url = presigned_result["signed_url"]
                 processed.azure_blob_url = blob_url
 
-                # Crop and upload 6 variants from the generated grid, each with unique name
+                # Crop and upload 4 variants from the generated grid, each with unique name
                 # Use parallel upload for better performance
                 try:
                     import asyncio
@@ -499,7 +499,7 @@ async def optimize_image_endpoint(
                         variant_presigned = await generate_presigned_url(variant_key)
                         return variant_presigned["signed_url"]
                     
-                    # Upload all 6 variants in parallel
+                    # Upload all 4 variants in parallel
                     upload_tasks = [
                         upload_variant(i, vb) 
                         for i, vb in enumerate(variant_bytes_list)
@@ -607,7 +607,7 @@ async def optimize_image_stream(
         
         successful_variants = 0
         failed_variants = 0
-        total_variants = 30  # 6 tiles × 5 variants
+        total_variants = 20  # 4 tiles × 5 variants
         variant_urls: List[str] = []
         grid_url = None
         original_url = None
@@ -753,7 +753,7 @@ async def optimize_image_stream(
                 "data": json.dumps({
                     "stage": "uploading",
                     "progress": 20,
-                    "message": "Generating and uploading 30 shipping-optimized variants..."
+                    "message": "Generating and uploading 20 shipping-optimized variants..."
                 })
             }
             
