@@ -9,6 +9,7 @@ import Footer from '../components/Footer'
 import MeeshoLinkModal from '../components/MeeshoLinkModal'
 import HowItWorks from '../components/HowItWorks'
 import TrustBar from '../components/TrustBar'
+import BeforeAfterShowcase from '../components/BeforeAfterShowcase'
 import { useImageUpload } from '../hooks/useImageUpload'
 import { useStreamingOptimization } from '../hooks/useStreamingOptimization'
 import { useAuth } from '../context/AuthContext'
@@ -452,6 +453,9 @@ export default function LandingScreen() {
 
           {/* How It Works - Animated Step Explainer */}
           <HowItWorks />
+
+          {/* Before & After Showcase */}
+          <BeforeAfterShowcase />
 
           {/* ROI Calculator */}
           <motion.div 
