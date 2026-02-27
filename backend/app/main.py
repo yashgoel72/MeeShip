@@ -99,6 +99,18 @@ async def health():
     return {"status": "healthy"}
 
 
+@app.get("/health/browser", tags=["Health"])
+async def health_browser():
+    """Check if Playwright/Xvfb background install is complete."""
+    import os
+    ready = os.path.exists("/tmp/.playwright_ready")
+    return {
+        "status": "ready" if ready else "installing",
+        "browser": "chromium",
+        "detail": "Playwright + Xvfb available" if ready else "Background install in progress (~3 min after boot)",
+    }
+
+
 @app.get("/health/db", tags=["Health"])
 async def health_db(db: AsyncSession = Depends(get_db)):
     """Database health check endpoint."""
