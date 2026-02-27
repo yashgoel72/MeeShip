@@ -201,14 +201,14 @@ export default function MeeshoLinkModal({ open, onClose, onSuccess }: MeeshoLink
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Link Meesho Account</h2>
-              <p className="text-sm text-gray-500">See exact shipping costs for your products</p>
+              <h2 className="text-xl font-bold text-gray-900">Secure Account Linking</h2>
+              <p className="text-sm text-gray-500">One-time login to fetch your shipping rates</p>
             </div>
           </div>
           <button
@@ -358,6 +358,65 @@ export default function MeeshoLinkModal({ open, onClose, onSuccess }: MeeshoLink
           {/* Idle state - not linked */}
           {step === "idle" && !status?.linked && (
             <div className="space-y-5">
+              {/* How This Works - Visual data flow */}
+              <div className="bg-slate-50 rounded-xl p-4 ring-1 ring-slate-200">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">How this works</p>
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex flex-col items-center text-center flex-1">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center mb-1.5">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                      </svg>
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-600">You login</span>
+                  </div>
+                  <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <div className="flex flex-col items-center text-center flex-1">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center mb-1.5">
+                      <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                      </svg>
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-600">We capture session</span>
+                  </div>
+                  <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <div className="flex flex-col items-center text-center flex-1">
+                    <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center mb-1.5">
+                      <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                      </svg>
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-600">Password deleted</span>
+                  </div>
+                  <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <div className="flex flex-col items-center text-center flex-1">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center mb-1.5">
+                      <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-600">You're linked!</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security assurance - prominent placement above form */}
+              <div className="flex items-start gap-2.5 bg-emerald-50 rounded-xl px-3.5 py-3 ring-1 ring-emerald-200">
+                <svg className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800">Your password is never stored</p>
+                  <p className="text-xs text-emerald-700 mt-0.5">Used once to login, then immediately deleted. Only an encrypted session token is kept.</p>
+                </div>
+              </div>
+
               {/* Credentials form */}
               <div className="space-y-3">
                 <div>
@@ -414,18 +473,16 @@ export default function MeeshoLinkModal({ open, onClose, onSuccess }: MeeshoLink
               <button
                 onClick={handleStartBrowser}
                 disabled={!meeshoEmail || !meeshoPassword}
-                className="w-full py-4 px-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 px-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
-                Link Meesho Account
+                Securely Link Meesho Account
               </button>
 
-              {/* Security note */}
-              <p className="text-xs text-gray-400 text-center">
-                🔒 Your password is only used once to log in and is never stored.
-                Session cookies are encrypted with AES-256.
+              <p className="text-[11px] text-gray-400 text-center">
+                🔒 AES-256 encryption · Razorpay-grade security · Takes ~30 seconds
               </p>
             </div>
           )}

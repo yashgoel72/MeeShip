@@ -42,6 +42,16 @@ def run_meesho_login(output_file: str, email: str = None, password: str = None):
     programmatic = bool(email and password)
     logger.info(f"Starting Meesho login in {'PROGRAMMATIC' if programmatic else 'MANUAL'} mode")
 
+    # Check if background installer has finished (Azure startup.sh)
+    import os
+    if not os.path.exists("/tmp/.playwright_ready") and os.path.exists("/home/site/wwwroot"):
+        _write_result(output_file, {
+            "success": False,
+            "error": "Browser engine is still installing (~3 min after server boot). Please retry shortly.",
+            "error_code": "BROWSER_NOT_READY",
+        })
+        return
+
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:

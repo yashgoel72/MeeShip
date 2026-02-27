@@ -6,6 +6,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+        body: ['Inter', 'system-ui', 'sans-serif'],
+      },
       colors: {
         meesho: '#1E3A8A',
         offwhite: '#F8FAFC',
