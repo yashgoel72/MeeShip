@@ -7,6 +7,8 @@ import CategoryPicker from '../components/CategoryPicker'
 import UpgradeBanner from '../components/UpgradeBanner'
 import Footer from '../components/Footer'
 import MeeshoLinkModal from '../components/MeeshoLinkModal'
+import HowItWorks from '../components/HowItWorks'
+import TrustBar from '../components/TrustBar'
 import { useImageUpload } from '../hooks/useImageUpload'
 import { useStreamingOptimization } from '../hooks/useStreamingOptimization'
 import { useAuth } from '../context/AuthContext'
@@ -37,7 +39,7 @@ function Header({ onSignIn, meeshoLinked, onMeeshoLinkClick }: HeaderProps) {
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
         <Link to="/" className="flex items-center gap-3">
           <div>
-            <div className="text-sm font-extrabold tracking-tight text-slate-900">
+            <div className="text-sm font-extrabold tracking-tight text-slate-900 font-display">
               MeeShip
               <span className="ml-2 inline-block h-0.5 w-8 align-middle bg-amber-500" />
             </div>
@@ -259,21 +261,22 @@ export default function LandingScreen() {
               <span className="flex h-2 w-2 animate-pulse rounded-full bg-meesho" />
               1 Photo → ₹10-20 Saved Per Order
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+            <h1 className="font-display text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
               Save <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">₹10-20</span> on Every Meesho Order
             </h1>
             <div className="mt-5 text-lg text-slate-600 sm:text-xl">
               Upload 1 photo → We test <span className="font-semibold text-slate-900">30 image variations</span> → Find your cheapest shipping
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-100">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 sm:text-sm sm:px-4 sm:py-2">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
                 2,000+ sellers saving daily
               </div>
-              <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 ring-1 ring-amber-100">
+              <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-100 sm:text-sm sm:px-4 sm:py-2">
                 💰 ₹4.2 Cr+ saved so far
               </div>
+              <TrustBar />
             </div>
           </div>
 
@@ -342,71 +345,6 @@ export default function LandingScreen() {
             <div className="mt-6">
               <CategoryPicker />
             </div>
-
-{/* Outcome-focused benefits - Visual Grid */}
-            <div className="mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                { icon: '�', text: '₹10-20 saved', subtext: 'per order', color: 'from-blue-50 to-indigo-50 ring-blue-100' },
-                { icon: '📦', text: 'Lower shipping', subtext: 'slab reduction', color: 'from-emerald-50 to-teal-50 ring-emerald-100' },
-                { icon: '↩️', text: 'Save 2x', subtext: 'on returns', color: 'from-purple-50 to-pink-50 ring-purple-100' },
-                { icon: '⚡', text: '~1 minute', subtext: 'delivery', color: 'from-amber-50 to-orange-50 ring-amber-100' },
-              ].map((b) => (
-                <motion.div 
-                  key={b.text} 
-                  whileHover={{ scale: 1.03, y: -2 }}
-                  className={`flex flex-col items-center gap-1 rounded-2xl bg-gradient-to-br ${b.color} p-4 ring-1 transition-shadow hover:shadow-md cursor-default`}
-                >
-                  <span className="text-2xl">{b.icon}</span>
-                  <span className="text-sm font-semibold text-slate-800">{b.text}</span>
-                  <span className="text-xs text-slate-500">{b.subtext}</span>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* ROI Calculator - Polished Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="mx-auto mt-8 max-w-2xl"
-            >
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 shadow-sm ring-1 ring-emerald-200">
-                {/* Decorative elements */}
-                <div className="absolute -top-12 -right-12 w-32 h-32 bg-emerald-200/40 rounded-full blur-2xl" />
-                <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-teal-200/40 rounded-full blur-2xl" />
-                
-                <div className="relative">
-                  <div className="px-4 py-3 bg-emerald-100/60 backdrop-blur-sm text-center border-b border-emerald-200/50">
-                    <span className="text-sm font-semibold text-emerald-800 flex items-center justify-center gap-2">
-                      <span className="text-base">💡</span> Your Potential Savings
-                    </span>
-                  </div>
-                  <div className="p-6">
-                    <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center sm:gap-6">
-                      <div className="text-center">
-                        <div className="text-4xl font-bold text-slate-900">₹10</div>
-                        <div className="text-xs text-slate-600 mt-1">saved per order</div>
-                      </div>
-                      <div className="text-2xl text-emerald-400 font-light">×</div>
-                      <div className="text-center">
-                        <div className="text-4xl font-bold text-slate-900">1,000</div>
-                        <div className="text-xs text-slate-600 mt-1">orders/month</div>
-                      </div>
-                      <div className="text-2xl text-emerald-400 font-light">=</div>
-                      <div className="text-center">
-                        <div className="text-4xl font-bold text-emerald-600">₹10,000</div>
-                        <div className="text-xs font-medium text-emerald-600 mt-1">monthly profit</div>
-                      </div>
-                    </div>
-                    <div className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-white/60 backdrop-blur-sm px-4 py-2.5 text-sm text-slate-700 ring-1 ring-emerald-200/50">
-                      <span className="text-blue-500">↩️</span>
-                      <span><strong>Returns?</strong> You save 2x on shipping (forward + return). More returns = more savings!</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
 
             {/* Upgrade Banner for users with low/no credits */}
             {isAuthenticated && (
@@ -483,7 +421,7 @@ export default function LandingScreen() {
                       {!isAuthenticated
                         ? 'Sign in to Get Started'
                         : !meeshoReady
-                          ? '🔗 Link Meesho Account to Generate'
+                          ? '� Start Saving on Shipping'
                           : (user?.credits ?? 0) > 0 ? 'Find My Lowest Shipping' : 'Try Free — See Your Savings'
                       }
                       <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -494,17 +432,13 @@ export default function LandingScreen() {
                 </span>
               </motion.button>
 
-              {!compressing && (
-                <div className="mt-3 flex flex-wrap justify-center gap-4 text-sm text-slate-500">
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-base">✨</span> Professional backgrounds
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-base">💡</span> Perfect lighting
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-base">📦</span> Shipping-optimized
-                  </span>
+              {/* Meesho link hint below CTA */}
+              {isAuthenticated && !meeshoReady && !compressing && (
+                <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Quick one-time Meesho login required · Your password is never stored
                 </div>
               )}
 
@@ -514,7 +448,55 @@ export default function LandingScreen() {
             </div>
           </div>
 
-          {/* Testimonials - Enhanced */}
+          {/* === BELOW-THE-FOLD: Explanation & Social Proof === */}
+
+          {/* How It Works - Animated Step Explainer */}
+          <HowItWorks />
+
+          {/* ROI Calculator */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="mx-auto mt-12 max-w-2xl"
+          >
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 shadow-sm ring-1 ring-emerald-200">
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-emerald-200/40 rounded-full blur-2xl" />
+              <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-teal-200/40 rounded-full blur-2xl" />
+              <div className="relative">
+                <div className="px-4 py-3 bg-emerald-100/60 backdrop-blur-sm text-center border-b border-emerald-200/50">
+                  <span className="text-sm font-semibold text-emerald-800 flex items-center justify-center gap-2">
+                    <span className="text-base">💡</span> Your Potential Savings
+                  </span>
+                </div>
+                <div className="p-6">
+                  <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center sm:gap-6">
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-slate-900">₹10</div>
+                      <div className="text-xs text-slate-600 mt-1">saved per order</div>
+                    </div>
+                    <div className="text-2xl text-emerald-400 font-light">×</div>
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-slate-900">1,000</div>
+                      <div className="text-xs text-slate-600 mt-1">orders/month</div>
+                    </div>
+                    <div className="text-2xl text-emerald-400 font-light">=</div>
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-emerald-600">₹10,000</div>
+                      <div className="text-xs font-medium text-emerald-600 mt-1">monthly profit</div>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-white/60 backdrop-blur-sm px-4 py-2.5 text-sm text-slate-700 ring-1 ring-emerald-200/50">
+                    <span className="text-blue-500">↩️</span>
+                    <span><strong>Returns?</strong> You save 2x on shipping (forward + return). More returns = more savings!</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Testimonials */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}

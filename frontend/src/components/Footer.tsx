@@ -6,10 +6,38 @@ export default function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-slate-900 text-white">
       <div className="mx-auto max-w-6xl px-4 py-12">
+        {/* Trust badges row */}
+        <div className="mb-10 flex flex-wrap items-center justify-center gap-3 rounded-2xl bg-white/5 px-6 py-4 ring-1 ring-white/10">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            256-bit Encrypted
+          </div>
+          <span className="text-slate-700">•</span>
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+            <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+            Passwords Never Stored
+          </div>
+          <span className="text-slate-700">•</span>
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+            <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+            </svg>
+            Razorpay Secured Payments
+          </div>
+          <span className="text-slate-700">•</span>
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+            🇮🇳 Made in India
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="col-span-1 sm:col-span-2 lg:col-span-1">
-            <div className="text-lg font-extrabold tracking-tight">
+            <div className="text-lg font-extrabold tracking-tight font-display">
               MeeShip
               <span className="ml-2 inline-block h-0.5 w-8 align-middle bg-amber-500" />
             </div>
@@ -20,11 +48,6 @@ export default function Footer() {
               AI-powered shipping-optimized product photos for Meesho sellers. 
               Save ₹10-20 on every order.
             </p>
-            <div className="mt-4 flex items-center gap-2">
-              <div className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-300">
-                🔒 Secured by Razorpay
-              </div>
-            </div>
           </div>
 
           {/* Quick Links */}
