@@ -205,7 +205,7 @@ out
 
 # Gatsby files
 .cache/
-public
+# public  # disabled — frontend/public/ needs to be tracked
 
 # vuepress build output
 .vuepress/dist
@@ -270,3 +270,4 @@ temp/
 
 # Memory Bank (if exists)
 memory-bank/
+dataset/
