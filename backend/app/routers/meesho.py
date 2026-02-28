@@ -51,16 +51,28 @@ async def get_meesho_status(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get the current Meesho account linking status.
+    Get the current Meesho account linking status, including session validity.
     
-    Returns whether user has linked their Meesho account.
+    Returns whether user has linked their Meesho account and if the session is still active.
+    This is the single endpoint the frontend needs — no separate validate-session call required.
     """
     service = MeeshoService(db)
+    linked = service.is_linked(current_user)
+    
+    session_valid = None
+    if linked:
+        try:
+            is_valid, _error_msg, _error_code = await service.ping_meesho_session(current_user)
+            session_valid = is_valid
+        except Exception:
+            # If ping fails, report session as unknown rather than crashing
+            session_valid = None
     
     return MeeshoLinkStatus(
-        linked=service.is_linked(current_user),
+        linked=linked,
         supplier_id=current_user.meesho_supplier_id,
-        linked_at=current_user.meesho_linked_at
+        linked_at=current_user.meesho_linked_at,
+        session_valid=session_valid,
     )
 
 

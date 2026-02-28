@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useScroll } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
-import { getMeeshoStatus } from '../services/meeshoApi'
+import { useMeeshoStore } from '../stores/meeshoStore'
 import MeeshoLinkModal from './MeeshoLinkModal'
 
 interface HeaderProps {
@@ -14,7 +14,10 @@ export default function Header({ onSignIn }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false)
   const { isAuthenticated, user, logout } = useAuth()
   const location = useLocation()
-  const [meeshoLinked, setMeeshoLinked] = useState<boolean | null>(null)
+  const meeshoLinked = useMeeshoStore((s) => s.linked)
+  const sessionValid = useMeeshoStore((s) => s.sessionValid)
+  const fetchMeeshoStatus = useMeeshoStore((s) => s.fetchStatus)
+  const resetMeesho = useMeeshoStore((s) => s.reset)
   const [showMeeshoModal, setShowMeeshoModal] = useState(false)
 
   const isHomePage = location.pathname === '/'
@@ -24,24 +27,14 @@ export default function Header({ onSignIn }: HeaderProps) {
     return () => unsub()
   }, [scrollY])
 
-  // Check Meesho link status when authenticated
+  // Fetch Meesho status from shared store when authenticated
   useEffect(() => {
     if (!isAuthenticated) {
-      setMeeshoLinked(null)
+      resetMeesho()
       return
     }
-
-    const checkMeeshoStatus = async () => {
-      try {
-        const status = await getMeeshoStatus()
-        setMeeshoLinked(status.linked)
-      } catch {
-        setMeeshoLinked(false)
-      }
-    }
-
-    checkMeeshoStatus()
-  }, [isAuthenticated])
+    fetchMeeshoStatus()
+  }, [isAuthenticated, fetchMeeshoStatus, resetMeesho])
 
   return (
     <header className={
@@ -89,15 +82,21 @@ export default function Header({ onSignIn }: HeaderProps) {
                   type="button"
                   onClick={() => setShowMeeshoModal(true)}
                   className={`hidden items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors sm:flex ${
-                    meeshoLinked
+                    meeshoLinked && sessionValid !== false
                       ? 'bg-pink-50 text-pink-700 ring-pink-200 hover:bg-pink-100'
-                      : 'bg-gray-50 text-gray-600 ring-gray-200 hover:bg-gray-100'
+                      : meeshoLinked && sessionValid === false
+                        ? 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100'
+                        : 'bg-gray-50 text-gray-600 ring-gray-200 hover:bg-gray-100'
                   }`}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                   </svg>
-                  {meeshoLinked ? 'Meesho ✓' : 'Link Meesho'}
+                  {meeshoLinked && sessionValid !== false
+                    ? 'Meesho ✓'
+                    : meeshoLinked && sessionValid === false
+                      ? 'Session Expired'
+                      : 'Link Meesho'}
                 </button>
               )}
               {typeof user?.credits === 'number' && (
@@ -143,7 +142,7 @@ export default function Header({ onSignIn }: HeaderProps) {
       <MeeshoLinkModal
         open={showMeeshoModal}
         onClose={() => setShowMeeshoModal(false)}
-        onSuccess={() => setMeeshoLinked(true)}
+        onSuccess={() => useMeeshoStore.getState().markLinked()}
       />
     </header>
   )
