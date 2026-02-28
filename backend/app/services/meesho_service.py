@@ -592,7 +592,8 @@ class MeeshoService:
         self,
         user: User,
         price: int,
-        sscat_id: int = 12435
+        sscat_id: int = 12435,
+        credentials_override: Optional[MeeshoCredentials] = None,
     ) -> ShippingResult:
         """
         Get shipping cost for a product.
@@ -601,32 +602,36 @@ class MeeshoService:
             user: User with linked Meesho account
             price: Product price in INR
             sscat_id: Sub-category ID
+            credentials_override: If provided, use these credentials instead of user's own
         
         Returns:
             ShippingResult with shipping cost or error
         """
-        # Check if linked
-        if not self.is_linked(user):
-            return ShippingResult(
-                success=False,
-                price=price,
-                shipping_charges=0,
-                transfer_price=0,
-                error="Meesho account not linked",
-                error_code="NOT_LINKED"
-            )
-        
-        # Get credentials
-        credentials = self._get_credentials(user)
-        if not credentials:
-            return ShippingResult(
-                success=False,
-                price=price,
-                shipping_charges=0,
-                transfer_price=0,
-                error="Failed to retrieve credentials",
-                error_code="CREDENTIAL_ERROR"
-            )
+        # Use override credentials (platform creds for free-credit users) or user's own
+        credentials = credentials_override
+        if credentials is None:
+            # Check if linked
+            if not self.is_linked(user):
+                return ShippingResult(
+                    success=False,
+                    price=price,
+                    shipping_charges=0,
+                    transfer_price=0,
+                    error="Meesho account not linked",
+                    error_code="NOT_LINKED"
+                )
+            
+            # Get credentials
+            credentials = self._get_credentials(user)
+            if not credentials:
+                return ShippingResult(
+                    success=False,
+                    price=price,
+                    shipping_charges=0,
+                    transfer_price=0,
+                    error="Failed to retrieve credentials",
+                    error_code="CREDENTIAL_ERROR"
+                )
         
         # Call Meesho API
         async with MeeshoAPIClient(credentials) as client:
@@ -645,7 +650,8 @@ class MeeshoService:
         image_bytes: bytes,
         price: int,
         sscat_id: int = 12435,
-        filename: str = "variant.jpg"
+        filename: str = "variant.jpg",
+        credentials_override: Optional[MeeshoCredentials] = None,
     ) -> ShippingResult:
         """
         Get shipping cost for a specific image using full POC flow.
@@ -659,32 +665,36 @@ class MeeshoService:
             price: Product price in INR
             sscat_id: Sub-category ID
             filename: Filename for upload
+            credentials_override: If provided, use these credentials instead of user's own
         
         Returns:
             ShippingResult with shipping cost or error
         """
-        # Check if linked
-        if not self.is_linked(user):
-            return ShippingResult(
-                success=False,
-                price=price,
-                shipping_charges=0,
-                transfer_price=0,
-                error="Meesho account not linked",
-                error_code="NOT_LINKED"
-            )
-        
-        # Get credentials
-        credentials = self._get_credentials(user)
-        if not credentials:
-            return ShippingResult(
-                success=False,
-                price=price,
-                shipping_charges=0,
-                transfer_price=0,
-                error="Failed to retrieve credentials",
-                error_code="CREDENTIAL_ERROR"
-            )
+        # Use override credentials (platform creds for free-credit users) or user's own
+        credentials = credentials_override
+        if credentials is None:
+            # Check if linked
+            if not self.is_linked(user):
+                return ShippingResult(
+                    success=False,
+                    price=price,
+                    shipping_charges=0,
+                    transfer_price=0,
+                    error="Meesho account not linked",
+                    error_code="NOT_LINKED"
+                )
+            
+            # Get credentials
+            credentials = self._get_credentials(user)
+            if not credentials:
+                return ShippingResult(
+                    success=False,
+                    price=price,
+                    shipping_charges=0,
+                    transfer_price=0,
+                    error="Failed to retrieve credentials",
+                    error_code="CREDENTIAL_ERROR"
+                )
         
         # Call Meesho API with full flow
         async with MeeshoAPIClient(credentials) as client:

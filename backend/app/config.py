@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     KINDE_REDIRECT_URI: str = ""  # e.g., http://localhost:3000/api/auth/kinde/callback
     KINDE_LOGOUT_REDIRECT_URI: str = ""  # e.g., http://localhost:3000
 
+    # Platform Meesho credentials (for free-credit users who haven't linked their own account)
+    PLATFORM_MEESHO_EMAIL: str = ""
+    PLATFORM_MEESHO_PASSWORD: str = ""
+    PLATFORM_USER_EMAIL: str = "jaishreeshyamindustries134@gmail.com"
+
     # Application Settings
     APP_NAME: str = "Meesho Image Optimizer"
     DEBUG: bool = False

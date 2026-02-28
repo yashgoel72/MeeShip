@@ -37,6 +37,8 @@ services:
       - DEBUG=false
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://meesho-optimizer.com}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PLATFORM_MEESHO_EMAIL=${PLATFORM_MEESHO_EMAIL}
+      - PLATFORM_MEESHO_PASSWORD=${PLATFORM_MEESHO_PASSWORD}
     expose:
       - "8000"
     volumes:
