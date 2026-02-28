@@ -47,7 +47,7 @@ export type StreamingProgress = {
   progress: number  // 0-100
   message: string
   completed: number  // Variants completed
-  total: number      // Total expected variants (20)
+  total: number      // Total expected variants (28)
   errors: string[]   // Error messages collected during streaming
 }
 
@@ -114,7 +114,7 @@ const initialStreamingProgress: StreamingProgress = {
   progress: 0,
   message: '',
   completed: 0,
-  total: 20,
+  total: 28,
   errors: [],
 }
 

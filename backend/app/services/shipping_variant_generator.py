@@ -1,6 +1,6 @@
 """Shipping-optimized variant generator.
 
-Generates 5 purposeful variants per base tile from the GPT-generated grid,
+Generates 7 purposeful variants per base tile from the GPT-generated grid,
 each designed to help sellers understand how visual size impacts perceived weight/shipping cost.
 """
 
@@ -23,6 +23,8 @@ class VariantType(str, Enum):
     DETAIL_FOCUS = "detail_focus"      # Cool tone variant
     WARM_MINIMAL = "warm_minimal"      # Warm tone variant
     STICKER = "sticker"                # Promotional badge overlay
+    MIRROR = "mirror"                  # Horizontal flip
+    MIXED_BOOST = "mixed_boost"        # Combined: contrast + brightness + sharpen
 
 
 @dataclass
@@ -31,7 +33,7 @@ class VariantInfo:
     tile_index: int           # 0-3, which base tile this came from
     variant_type: VariantType # Which variant transformation
     variant_index: int        # 0-4, position within the tile's variants
-    global_index: int         # 0-19, position in the full 20-variant list
+    global_index: int         # 0-27, position in the full 28-variant list
     tile_name: str           # Human-readable tile name
     variant_label: str       # Human-readable variant label
 
@@ -50,6 +52,8 @@ VARIANT_LABELS = {
     VariantType.DETAIL_FOCUS: "Cool Minimal",
     VariantType.WARM_MINIMAL: "Warm Minimal",
     VariantType.STICKER: "Sticker Badge",
+    VariantType.MIRROR: "Mirror",
+    VariantType.MIXED_BOOST: "Mixed Boost",
 }
 
 
@@ -208,6 +212,34 @@ def adjust_background_tone(img: Image.Image, warmth: int = 10) -> Image.Image:
     img = enhancer.enhance(1.15)  # 15% saturation boost
     
     return img
+
+
+def flip_horizontal(img: Image.Image) -> Image.Image:
+    """Mirror image horizontally — tests if shipping API is orientation-sensitive.
+
+    Zero-cost transform that produces a visually distinct image the API
+    may score with different volumetric dimensions.
+    """
+    return img.transpose(Image.FLIP_LEFT_RIGHT)
+
+
+def mixed_boost(img: Image.Image) -> Image.Image:
+    """Combined transform: gentle contrast + brightness + sharpen.
+
+    Applies three light adjustments together to create a visually distinct
+    variant that subtly changes edge definition and luminance — may affect
+    how the shipping API reads product boundaries.
+
+    - Contrast +8%: slightly sharper edges
+    - Brightness +5%: marginally lighter
+    - Sharpness 1.2×: mild texture crisp
+    """
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    out = ImageEnhance.Contrast(img).enhance(1.08)
+    out = ImageEnhance.Brightness(out).enhance(1.05)
+    out = ImageEnhance.Sharpness(out).enhance(1.20)
+    return out
 
 
 # --- Sticker / Badge overlay ---
@@ -411,14 +443,14 @@ def apply_sticker_overlay(img: Image.Image) -> Image.Image:
 
 
 def generate_shipping_variants(tile_img: Image.Image, tile_index: int = 0) -> Generator[Tuple[Image.Image, VariantInfo], None, None]:
-    """Generate 5 shipping-optimized variants for a single base tile.
+    """Generate 7 shipping-optimized variants for a single base tile.
     
     Args:
         tile_img: Source 512x512 (or similar) PIL Image from grid
         tile_index: 0-3, which tile this is from
     
     Yields:
-        Tuple of (variant_image, variant_info) for each of the 5 variants.
+        Tuple of (variant_image, variant_info) for each of the 7 variants.
     """
     tile_name = TILE_NAMES[tile_index] if tile_index < len(TILE_NAMES) else f"Tile {tile_index + 1}"
     
@@ -426,13 +458,15 @@ def generate_shipping_variants(tile_img: Image.Image, tile_index: int = 0) -> Ge
     if tile_img.mode != "RGB":
         tile_img = tile_img.convert("RGB")
     
-    # All 5 variants for each tile: Standard, Cool, Warm, Zoom Out, Sticker
+    # All 7 variants for each tile: Standard, Cool, Warm, Zoom Out, Sticker, Mirror, Mixed Boost
     variants = [
         (VariantType.STANDARD, lambda img: img.copy()),  # Original unchanged
         (VariantType.DETAIL_FOCUS, lambda img: adjust_background_tone(img, warmth=-20)),  # Cool tone
         (VariantType.WARM_MINIMAL, lambda img: adjust_background_tone(img, warmth=25)),  # Warm tone
         (VariantType.HERO_COMPACT, lambda img: zoom_out(img, factor=0.80)),  # 20% zoomed out
         (VariantType.STICKER, lambda img: apply_sticker_overlay(img)),  # Promotional badge
+        (VariantType.MIRROR, lambda img: flip_horizontal(img)),  # Horizontal flip
+        (VariantType.MIXED_BOOST, lambda img: mixed_boost(img)),  # Contrast + brightness + sharpen
     ]
     
     for variant_idx, (variant_type, transform_fn) in enumerate(variants):
@@ -442,7 +476,7 @@ def generate_shipping_variants(tile_img: Image.Image, tile_index: int = 0) -> Ge
                 tile_index=tile_index,
                 variant_type=variant_type,
                 variant_index=variant_idx,
-                global_index=tile_index * 5 + variant_idx,
+                global_index=tile_index * 7 + variant_idx,
                 tile_name=tile_name,
                 variant_label=VARIANT_LABELS[variant_type],
             )
@@ -454,7 +488,7 @@ def generate_shipping_variants(tile_img: Image.Image, tile_index: int = 0) -> Ge
 
 
 def generate_all_shipping_variants(grid_image_bytes: bytes, tile_px: int = 512) -> Generator[Tuple[bytes, VariantInfo], None, None]:
-    """Generate all 20 shipping-optimized variants from a 1024x1024 grid image.
+    """Generate all 28 shipping-optimized variants from a 1024x1024 grid image.
     
     This is a generator that yields variants one at a time for streaming.
     

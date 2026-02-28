@@ -46,11 +46,12 @@ function ConfettiBurst() {
 }
 
 function ProgressBar({ progress, completed, total }: { progress: number; completed: number; total: number }) {
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0
   return (
     <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-4 ring-1 ring-blue-100">
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-semibold text-blue-800">Generating variants...</div>
-        <div className="text-sm font-medium text-blue-600">{completed}/{total} ready</div>
+        <div className="text-sm font-medium text-blue-600">{pct}% complete</div>
       </div>
       <div className="h-2 w-full rounded-full bg-blue-100 overflow-hidden">
         <motion.div
@@ -175,7 +176,7 @@ export default function ResultScreen() {
   }, [variants])
 
   const isStreaming = streamingProgress.stage !== 'idle' && streamingProgress.stage !== 'complete' && streamingProgress.stage !== 'error'
-  const totalExpected = streamingProgress.total || 20
+  const totalExpected = streamingProgress.total || 28
   const completed = variants.length
 
   if (!result && !isStreaming) {
@@ -347,7 +348,7 @@ export default function ResultScreen() {
                   <span className="text-lg">🏆</span>
                   <span className="font-semibold text-amber-800">Top {shippingSummary.top10.length} Lowest Shipping</span>
                 </div>
-                <span className="text-sm text-slate-500">{shippingSummary.count} of {shippingSummary.totalChecked} images checked</span>
+                <span className="text-sm text-slate-500">{shippingSummary.totalChecked > 0 ? Math.round((shippingSummary.count / shippingSummary.totalChecked) * 100) : 0}% images checked</span>
               </div>
               <button
                 type="button"
@@ -486,7 +487,7 @@ export default function ResultScreen() {
         {isStreaming && (
           <div className="mt-6 rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
             <div className="text-lg font-bold text-slate-900">
-              {completed} of {totalExpected} Variants
+              {totalExpected > 0 ? Math.round((completed / totalExpected) * 100) : 0}% Complete
             </div>
             <div className="mt-1 text-sm text-slate-500">
               {streamingProgress.message || 'Generating variants...'}
