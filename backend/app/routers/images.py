@@ -607,7 +607,7 @@ async def optimize_image_stream(
         
         successful_variants = 0
         failed_variants = 0
-        total_variants = 20  # 4 tiles × 5 variants
+        total_variants = 28  # 4 tiles × 7 variants
         variant_urls: List[str] = []
         grid_url = None
         original_url = None
@@ -781,7 +781,7 @@ async def optimize_image_stream(
                 "data": json.dumps({
                     "stage": "uploading",
                     "progress": 20,
-                    "message": "Generating and uploading 20 shipping-optimized variants..."
+                    "message": "Generating and uploading 28 shipping-optimized variants..."
                 })
             }
             

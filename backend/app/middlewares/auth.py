@@ -305,6 +305,12 @@ async def require_meesho_or_platform(
        uses the platform's shared Meesho credentials for shipping cost calls.
     3. Otherwise → 403.
     """
+    # DEV MODE: skip Meesho session validation entirely, use platform creds
+    if DEV_BYPASS_AUTH:
+        logger.warning("DEV_BYPASS_AUTH — skipping Meesho session check, using platform creds")
+        request.state.use_platform_creds = True
+        return current_user
+
     from app.services.meesho_service import MeeshoService
 
     meesho_service = MeeshoService(db)

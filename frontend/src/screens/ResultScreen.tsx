@@ -175,7 +175,7 @@ export default function ResultScreen() {
   }, [variants])
 
   const isStreaming = streamingProgress.stage !== 'idle' && streamingProgress.stage !== 'complete' && streamingProgress.stage !== 'error'
-  const totalExpected = streamingProgress.total || 20
+  const totalExpected = streamingProgress.total || 28
   const completed = variants.length
 
   if (!result && !isStreaming) {
