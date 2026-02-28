@@ -2,7 +2,6 @@ import {
   onUserPreRegistrationEvent,
   denyAccess,
   WorkflowSettings,
-  WorkflowTrigger,
 } from "@kinde/infrastructure";
 
 /**
@@ -22,8 +21,10 @@ export const workflowSettings: WorkflowSettings = {
   failurePolicy: {
     action: "stop",
   },
-  trigger: WorkflowTrigger.UserPreRegistration,
-  bindings: {},
+  trigger: "user:pre_registration",
+  bindings: {
+    "kinde.auth": {},
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -212,29 +213,33 @@ const DISPOSABLE_DOMAINS: ReadonlySet<string> = new Set([
 // ---------------------------------------------------------------------------
 // Workflow handler
 // ---------------------------------------------------------------------------
-export default {
-  async handle(event: onUserPreRegistrationEvent): Promise<void> {
-    const email: string | undefined =
-      event?.context?.user?.identities?.[0]?.identity_value;
+export default async function Workflow(
+  event: onUserPreRegistrationEvent
+): Promise<void> {
+  console.log("preUserRegistration", event);
 
-    if (!email) {
-      // No email on the event – deny to be safe (fail-closed).
-      denyAccess("Unable to verify email address. Please try again.");
-      return;
-    }
+  const email: string | undefined = event?.context?.user?.email;
 
-    const domain = email.split("@").pop()?.toLowerCase();
+  if (!email) {
+    // No email on the event – deny to be safe (fail-closed).
+    denyAccess("Unable to verify email address. Please try again.");
+    return;
+  }
 
-    if (!domain) {
-      denyAccess("Invalid email address format.");
-      return;
-    }
+  const domain = email.split("@").pop()?.toLowerCase();
 
-    if (DISPOSABLE_DOMAINS.has(domain)) {
-      denyAccess(
-        "Disposable or temporary email addresses are not allowed. " +
-          "Please sign up with a permanent email address."
-      );
-    }
-  },
-};
+  if (!domain) {
+    denyAccess("Invalid email address format.");
+    return;
+  }
+
+  if (DISPOSABLE_DOMAINS.has(domain)) {
+    console.log(`Blocking registration for disposable email domain: ${domain}`);
+    denyAccess(
+      "Disposable or temporary email addresses are not allowed. " +
+        "Please sign up with a permanent email address."
+    );
+  } else {
+    console.log(`Allowing registration for email domain: ${domain}`);
+  }
+}
