@@ -152,7 +152,7 @@ export default function BeforeAfterShowcase() {
               Lowest shipping: ₹81 — <span className="text-emerald-600">saved ₹81</span> vs highest
             </div>
             <div className="text-xs text-emerald-600/70">
-              28 image variations tested automatically in under 3 minutes
+              Multiple image variations tested automatically in under 3 minutes
             </div>
           </div>
         </div>
