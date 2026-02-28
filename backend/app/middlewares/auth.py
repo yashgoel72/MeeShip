@@ -289,6 +289,65 @@ async def require_meesho_linked(
     return current_user
 
 
+async def require_meesho_or_platform(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Flexible Meesho dependency: allows generation with either user's own
+    Meesho credentials OR the platform's shared credentials (for free-credit users).
+
+    Logic:
+    1. If user has linked Meesho → validate their session as normal.
+    2. If user has NOT linked Meesho but has credits > 0 → allow through
+       and tag request.state.use_platform_creds = True so the endpoint
+       uses the platform's shared Meesho credentials for shipping cost calls.
+    3. Otherwise → 403.
+    """
+    from app.services.meesho_service import MeeshoService
+
+    meesho_service = MeeshoService(db)
+
+    # Path A: User has their own Meesho linked — validate their session
+    if meesho_service.is_linked(current_user):
+        is_valid, error_msg, error_code = await meesho_service.ping_meesho_session(current_user)
+        if is_valid:
+            request.state.use_platform_creds = False
+            return current_user
+        # Session expired — tell frontend
+        logger.warning(f"Meesho session expired for user {current_user.id}: {error_code}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": error_code, "message": error_msg},
+        )
+
+    # Path B: No Meesho linked — allow platform creds ONLY for free-credit users
+    # who have never purchased (credits_expires_at is None means only free credits).
+    # Users who have bought credits must link their own Meesho account.
+    has_only_free_credits = (
+        current_user.credits is not None
+        and current_user.credits > 0
+        and current_user.credits_expires_at is None
+    )
+    if has_only_free_credits:
+        logger.info(
+            f"User {current_user.id} has {current_user.credits} free credits (never purchased) — "
+            "allowing with platform credentials"
+        )
+        request.state.use_platform_creds = True
+        return current_user
+
+    # Path C: No Meesho linked, and either no credits or has purchased credits — block
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "error": "MEESHO_NOT_LINKED",
+            "message": "Please link your Meesho account to continue.",
+        },
+    )
+
+
 def get_client_ip(request: Request) -> str:
     """
     Extract client IP address from request, considering proxies.

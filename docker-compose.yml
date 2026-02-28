@@ -32,6 +32,8 @@ services:
       - SECRET_KEY=dev-secret-key-change-in-production
       - DEBUG=true
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+      - PLATFORM_MEESHO_EMAIL=${PLATFORM_MEESHO_EMAIL:-}
+      - PLATFORM_MEESHO_PASSWORD=${PLATFORM_MEESHO_PASSWORD:-}
     ports:
       - "8000:8000"
     volumes:

@@ -231,21 +231,29 @@ export default function LandingScreen() {
       } else if (detail?.reason === 'MEESHO_SESSION_EXPIRED') {
         setMeeshoSessionExpired(true)
       }
-      setShowMeeshoModal(true)
+      // Don't show the Meesho modal for free-credit users — the backend
+      // handles them via platform credentials. Only show for paid-credit users.
+      if ((user?.credits ?? 0) <= 0) {
+        setShowMeeshoModal(true)
+      }
     }
     window.addEventListener('meesho-link-required', handler)
     return () => window.removeEventListener('meesho-link-required', handler)
-  }, [])
+  }, [user?.credits])
 
   const canGenerate = useMemo(() => {
     return !!originalFile && !!compressedFile && !compressing && sscatId !== null
   }, [compressedFile, compressing, originalFile, sscatId])
 
-  // Meesho must be linked with a valid session to generate
-  const meeshoReady = meeshoLinked === true && !meeshoSessionExpired
+  // Meesho must be linked with a valid session to generate,
+  // OR user has free credits remaining AND has never purchased (backend uses platform creds).
+  // Once a user buys credits, they must link their own Meesho account.
+  const hasFreeCreditRemaining = (user?.credits ?? 0) > 0 && !user?.creditsExpiresAt
+  const meeshoReady = (meeshoLinked === true && !meeshoSessionExpired) || hasFreeCreditRemaining
 
-  // Show Meesho banner: not linked, or session expired
-  const showMeeshoBanner = isAuthenticated && meeshoLinked !== null && (!meeshoLinked || meeshoSessionExpired)
+  // Show Meesho banner only if user has no credits AND no linked Meesho
+  // Free-credit users can generate without linking — show a softer nudge instead
+  const showMeeshoBanner = isAuthenticated && !hasFreeCreditRemaining && meeshoLinked !== null && (!meeshoLinked || meeshoSessionExpired)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30">
@@ -440,6 +448,15 @@ export default function LandingScreen() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                   Quick one-time Meesho login required · Your password is never stored
+                </div>
+              )}
+
+              {/* Soft nudge for free-credit users who haven't linked Meesho yet */}
+              {isAuthenticated && hasFreeCreditRemaining && !meeshoLinked && !compressing && (
+                <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-emerald-600">
+                  <span>✨</span>
+                  <span>Free trial credit — no Meesho login needed!</span>
+                  <span className="text-slate-400 ml-1">Link Meesho later to buy more credits</span>
                 </div>
               )}
 

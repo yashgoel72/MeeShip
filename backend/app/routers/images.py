@@ -42,7 +42,7 @@ except Exception:
     FluxOptimizer = None
 from app.config import get_settings
 from app.services.trial_service import is_trial_upload_allowed
-from app.middlewares.auth import get_current_user, get_current_user_optional, require_meesho_linked
+from app.middlewares.auth import get_current_user, get_current_user_optional, require_meesho_linked, require_meesho_or_platform
 from app.services.meesho_service import MeeshoService
 
 router = APIRouter(prefix="/api/images", tags=["Images"])
@@ -313,7 +313,7 @@ async def optimize_image_endpoint(
     disable_fallback: Optional[bool] = Form(False),
     db: AsyncSession = Depends(get_db),
     minio_enabled: bool = Depends(get_minio_enabled),
-    current_user=Depends(require_meesho_linked),
+    current_user=Depends(require_meesho_or_platform),
 ):
     # --- Credits enforcement (auth + Meesho link required) ---
     is_trial_user = False
@@ -559,7 +559,7 @@ async def optimize_image_stream(
     sscat_breadcrumb: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     minio_enabled: bool = Depends(get_minio_enabled),
-    current_user=Depends(require_meesho_linked),
+    current_user=Depends(require_meesho_or_platform),
 ):
     """Streaming optimization endpoint that yields variants via Server-Sent Events.
     
@@ -617,28 +617,56 @@ async def optimize_image_stream(
         shipping_cost_data = None
         meesho_service = None
         meesho_linked = False
+        platform_creds = None  # Set when using platform credentials for free-credit users
         
         if current_user:
             try:
                 meesho_service = MeeshoService(db)
-                meesho_linked = meesho_service.is_linked(current_user)
-                logger.info(f"Meesho linked check: {meesho_linked} (supplier_id={current_user.meesho_supplier_id}, identifier={current_user.meesho_identifier}, has_sid={bool(current_user.meesho_connect_sid_encrypted)})")
-                if meesho_linked:
-                    # Get base shipping cost (will be refined per-variant with image)
-                    logger.info(f"Fetching base shipping cost for price={selling_price or 299}, sscat_id={sscat_id}")
-                    base_sscat = sscat_id or 12435
-                    result = await meesho_service.get_shipping_cost(
-                        user=current_user,
-                        price=selling_price or 299,
-                        sscat_id=base_sscat
-                    )
-                    logger.info(f"Base shipping result: success={result.success}, shipping={result.shipping_charges}, error={result.error}")
-                    if result.success:
-                        shipping_cost_data = {
-                            "shipping_charges": result.shipping_charges,
-                            "transfer_price": result.transfer_price,
-                            "selling_price": result.price,
-                        }
+                use_platform = getattr(request.state, 'use_platform_creds', False)
+
+                if use_platform:
+                    # Free-credit user — use platform's shared Meesho credentials
+                    from app.services.platform_credential_service import ensure_valid_session
+                    platform_creds = await ensure_valid_session(db)
+                    if platform_creds:
+                        meesho_linked = True
+                        logger.info(f"Using platform Meesho credentials for free-credit user {current_user.id}")
+                        base_sscat = sscat_id or 12435
+                        result = await meesho_service.get_shipping_cost(
+                            user=current_user,
+                            price=selling_price or 299,
+                            sscat_id=base_sscat,
+                            credentials_override=platform_creds,
+                        )
+                        logger.info(f"Base shipping result (platform): success={result.success}, shipping={result.shipping_charges}, error={result.error}")
+                        if result.success:
+                            shipping_cost_data = {
+                                "shipping_charges": result.shipping_charges,
+                                "transfer_price": result.transfer_price,
+                                "selling_price": result.price,
+                            }
+                    else:
+                        logger.warning("Platform credentials unavailable — shipping costs will be skipped for this run")
+                else:
+                    # User has their own Meesho linked
+                    meesho_linked = meesho_service.is_linked(current_user)
+                    logger.info(f"Meesho linked check: {meesho_linked} (supplier_id={current_user.meesho_supplier_id}, identifier={current_user.meesho_identifier}, has_sid={bool(current_user.meesho_connect_sid_encrypted)})")
+                    if meesho_linked:
+                        # Get base shipping cost (will be refined per-variant with image)
+                        logger.info(f"Fetching base shipping cost for price={selling_price or 299}, sscat_id={sscat_id}")
+                        base_sscat = sscat_id or 12435
+                        result = await meesho_service.get_shipping_cost(
+                            user=current_user,
+                            price=selling_price or 299,
+                            sscat_id=base_sscat
+                        )
+                        logger.info(f"Base shipping result: success={result.success}, shipping={result.shipping_charges}, error={result.error}")
+                        if result.success:
+                            shipping_cost_data = {
+                                "shipping_charges": result.shipping_charges,
+                                "transfer_price": result.transfer_price,
+                                "selling_price": result.price,
+                            }
             except Exception as e:
                 logger.warning(f"Failed to get shipping cost: {e}", exc_info=True)
         
@@ -782,7 +810,8 @@ async def optimize_image_stream(
                                 image_bytes=final_bytes,
                                 price=selling_price or 299,
                                 sscat_id=sscat_id or 12435,
-                                filename=f"variant_{info.tile_index}_{info.variant_index}.jpg"
+                                filename=f"variant_{info.tile_index}_{info.variant_index}.jpg",
+                                credentials_override=platform_creds,  # None when using user's own creds
                             )
                             logger.info(f"Shipping API result: success={result.success}, shipping={result.shipping_charges}, duplicate_pid={result.duplicate_pid}, error={result.error}")
                             if result.success:
