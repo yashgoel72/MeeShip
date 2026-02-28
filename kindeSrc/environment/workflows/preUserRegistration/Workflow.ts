@@ -221,15 +221,18 @@ export default async function Workflow(
   const email: string | undefined = event?.context?.user?.email;
 
   if (!email) {
-    // No email on the event – deny to be safe (fail-closed).
-    denyAccess("Unable to verify email address. Please try again.");
+    // No email on the event (e.g. social login where email isn't surfaced
+    // at pre-registration stage) – allow registration to proceed.
+    console.log(
+      "No user email found in pre-registration event, allowing registration"
+    );
     return;
   }
 
   const domain = email.split("@").pop()?.toLowerCase();
 
   if (!domain) {
-    denyAccess("Invalid email address format.");
+    console.log("Could not parse domain from email, allowing registration");
     return;
   }
 
