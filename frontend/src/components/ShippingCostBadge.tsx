@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getShippingCost, getMeeshoStatus, isShippingError, isSessionExpired, type ShippingCostResponse, type ShippingCostResult } from "../services/meeshoApi";
+import { getShippingCost, isShippingError, isSessionExpired, type ShippingCostResponse, type ShippingCostResult } from "../services/meeshoApi";
+import { useMeeshoStore } from "../stores/meeshoStore";
 
 export interface ShippingCostBadgeProps {
   /** Product selling price in INR */
@@ -25,26 +26,9 @@ export default function ShippingCostBadge({
 }: ShippingCostBadgeProps) {
   const [state, setState] = useState<BadgeState>("idle");
   const [shippingCost, setShippingCost] = useState<ShippingCostResponse | null>(null);
-  const [isLinked, setIsLinked] = useState<boolean | undefined>(meeshoLinked);
-
-  // Check Meesho link status if not provided
-  useEffect(() => {
-    if (meeshoLinked !== undefined) {
-      setIsLinked(meeshoLinked);
-      return;
-    }
-
-    const checkStatus = async () => {
-      try {
-        const status = await getMeeshoStatus();
-        setIsLinked(status.linked);
-      } catch {
-        setIsLinked(false);
-      }
-    };
-
-    checkStatus();
-  }, [meeshoLinked]);
+  const storeLinked = useMeeshoStore((s) => s.linked);
+  // Prefer prop if explicitly provided, otherwise use centralized store
+  const isLinked = meeshoLinked !== undefined ? meeshoLinked : storeLinked;
 
   // Fetch shipping cost when linked
   useEffect(() => {

@@ -14,15 +14,16 @@ import { useImageUpload } from '../hooks/useImageUpload'
 import { useStreamingOptimization } from '../hooks/useStreamingOptimization'
 import { useAuth } from '../context/AuthContext'
 import { useAppStore } from '../stores/appStore'
-import { getMeeshoStatus, validateMeeshoSession } from '../services/meeshoApi'
+import { useMeeshoStore } from '../stores/meeshoStore'
 
 interface HeaderProps {
   onSignIn: () => void
-  meeshoLinked: boolean | null
   onMeeshoLinkClick: () => void
 }
 
-function Header({ onSignIn, meeshoLinked, onMeeshoLinkClick }: HeaderProps) {
+function Header({ onSignIn, onMeeshoLinkClick }: HeaderProps) {
+  const meeshoLinked = useMeeshoStore((s) => s.linked)
+  const sessionValid = useMeeshoStore((s) => s.sessionValid)
   const { scrollY } = useScroll()
   const [scrolled, setScrolled] = useState(false)
   const { isAuthenticated, user, logout } = useAuth()
@@ -68,15 +69,21 @@ function Header({ onSignIn, meeshoLinked, onMeeshoLinkClick }: HeaderProps) {
                   type="button"
                   onClick={onMeeshoLinkClick}
                   className={`hidden items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors sm:flex ${
-                    meeshoLinked
+                    meeshoLinked && sessionValid !== false
                       ? 'bg-pink-50 text-pink-700 ring-pink-200 hover:bg-pink-100'
-                      : 'bg-gray-50 text-gray-600 ring-gray-200 hover:bg-gray-100'
+                      : meeshoLinked && sessionValid === false
+                        ? 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100'
+                        : 'bg-gray-50 text-gray-600 ring-gray-200 hover:bg-gray-100'
                   }`}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                   </svg>
-                  {meeshoLinked ? 'Meesho ✓' : 'Link Meesho'}
+                  {meeshoLinked && sessionValid !== false
+                    ? 'Meesho ✓'
+                    : meeshoLinked && sessionValid === false
+                      ? 'Session Expired'
+                      : 'Link Meesho'}
                 </button>
               )}
               {/* Credit Balance Badge */}
@@ -177,49 +184,25 @@ export default function LandingScreen() {
   const error = useAppStore((s) => s.error)
   const [signInOpen, setSignInOpen] = useState(false)
 
-  // Meesho link state — shared between Header pill and body banner
-  const [meeshoLinked, setMeeshoLinked] = useState<boolean | null>(null)
-  const [meeshoSessionExpired, setMeeshoSessionExpired] = useState(false)
+  // Meesho link state — read from centralized store
+  const meeshoLinked = useMeeshoStore((s) => s.linked)
+  const meeshoSessionExpired = useMeeshoStore((s) => s.sessionValid === false)
+  const fetchMeeshoStatus = useMeeshoStore((s) => s.fetchStatus)
+  const resetMeesho = useMeeshoStore((s) => s.reset)
   const [showMeeshoModal, setShowMeeshoModal] = useState(false)
 
-  // Check Meesho link status + session validity when authenticated
+  // Fetch Meesho status from shared store when authenticated
   useEffect(() => {
     if (!isAuthenticated) {
-      setMeeshoLinked(null)
-      setMeeshoSessionExpired(false)
+      resetMeesho()
       return
     }
-
-    const checkMeesho = async () => {
-      try {
-        const status = await getMeeshoStatus()
-        setMeeshoLinked(status.linked)
-        // If linked, check if session is still valid
-        if (status.linked) {
-          try {
-            const validation = await validateMeeshoSession()
-            if (!validation.valid && validation.error_code === 'SESSION_EXPIRED') {
-              setMeeshoSessionExpired(true)
-            } else {
-              setMeeshoSessionExpired(false)
-            }
-          } catch {
-            // Validation endpoint may not exist yet — treat as valid
-            setMeeshoSessionExpired(false)
-          }
-        }
-      } catch {
-        setMeeshoLinked(false)
-      }
-    }
-
-    checkMeesho()
-  }, [isAuthenticated])
+    fetchMeeshoStatus()
+  }, [isAuthenticated, fetchMeeshoStatus, resetMeesho])
 
   const handleMeeshoLinkSuccess = () => {
     setShowMeeshoModal(false)
-    setMeeshoLinked(true)
-    setMeeshoSessionExpired(false)
+    useMeeshoStore.getState().markLinked()
   }
 
   // Listen for meesho-link-required events from streaming hook (e.g. 403 from backend)
@@ -227,9 +210,9 @@ export default function LandingScreen() {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail
       if (detail?.reason === 'MEESHO_NOT_LINKED') {
-        setMeeshoLinked(false)
+        useMeeshoStore.getState().markUnlinked()
       } else if (detail?.reason === 'MEESHO_SESSION_EXPIRED') {
-        setMeeshoSessionExpired(true)
+        useMeeshoStore.getState().markSessionExpired()
       }
       // Don't show the Meesho modal for free-credit users — the backend
       // handles them via platform credentials. Only show for paid-credit users.
@@ -259,7 +242,6 @@ export default function LandingScreen() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30">
       <Header
         onSignIn={() => setSignInOpen(true)}
-        meeshoLinked={meeshoLinked}
         onMeeshoLinkClick={() => setShowMeeshoModal(true)}
       />
 

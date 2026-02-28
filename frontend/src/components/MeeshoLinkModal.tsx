@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   unlinkMeeshoAccount, 
-  getMeeshoStatus, 
-  validateMeeshoSession,
   startPlaywrightSession,
   pollPlaywrightSession,
   cancelPlaywrightSession,
@@ -10,6 +8,7 @@ import {
   type PlaywrightSessionStatus,
   type PlaywrightStatus
 } from "../services/meeshoApi";
+import { useMeeshoStore } from "../stores/meeshoStore";
 import { trackEvent } from "../utils/posthog";
 
 export interface MeeshoLinkModalProps {
@@ -43,7 +42,7 @@ export default function MeeshoLinkModal({ open, onClose, onSuccess }: MeeshoLink
   const [showPassword, setShowPassword] = useState(false);
   const pollCancelledRef = useRef(false);
 
-  // Fetch current status and validate session when modal opens
+  // Fetch current status from centralized store when modal opens
   useEffect(() => {
     if (!open) return;
 
@@ -52,21 +51,23 @@ export default function MeeshoLinkModal({ open, onClose, onSuccess }: MeeshoLink
       setStep("loading");
       setSessionExpiredMessage(null);
       try {
-        const res = await getMeeshoStatus();
+        // Use the centralized store's fetchStatus (deduplicates calls)
+        await useMeeshoStore.getState().fetchStatus();
         if (cancelled) return;
-        setStatus(res);
-        
-        // If linked, validate that the session is still active
-        if (res.linked) {
-          const validation = await validateMeeshoSession();
-          if (cancelled) return;
-          
-          if (!validation.valid) {
-            setStep("session_expired");
-            setSessionExpiredMessage(validation.message || "Your Meesho session has expired. Please re-link your account.");
-            trackEvent("meesho_session_expired_detected");
-            return;
-          }
+
+        const storeState = useMeeshoStore.getState();
+        setStatus(storeState.linked ? {
+          linked: true,
+          supplier_id: storeState.supplierId,
+          linked_at: storeState.linkedAt,
+        } : { linked: false, supplier_id: null, linked_at: null });
+
+        // If linked but session invalid, show session_expired step
+        if (storeState.linked && storeState.sessionValid === false) {
+          setStep("session_expired");
+          setSessionExpiredMessage(storeState.sessionExpiredMessage || "Your Meesho session has expired. Please re-link your account.");
+          trackEvent("meesho_session_expired_detected");
+          return;
         }
         
         setStep("idle");
@@ -141,9 +142,16 @@ export default function MeeshoLinkModal({ open, onClose, onSuccess }: MeeshoLink
         setLinkedSupplierId(finalStatus.supplier_id || null);
         trackEvent("meesho_account_linked");
 
-        // Refresh status
-        const newStatus = await getMeeshoStatus();
-        setStatus(newStatus);
+        // Sync centralized store
+        useMeeshoStore.getState().markLinked(finalStatus.supplier_id || undefined);
+
+        // Refresh local status display from store
+        const storeState = useMeeshoStore.getState();
+        setStatus(storeState.linked ? {
+          linked: true,
+          supplier_id: storeState.supplierId,
+          linked_at: storeState.linkedAt,
+        } : { linked: false, supplier_id: null, linked_at: null });
 
         onSuccess?.();
 
@@ -182,6 +190,7 @@ export default function MeeshoLinkModal({ open, onClose, onSuccess }: MeeshoLink
     try {
       await unlinkMeeshoAccount();
       trackEvent("meesho_account_unlinked");
+      useMeeshoStore.getState().markUnlinked();
       setStatus({ linked: false, supplier_id: null, linked_at: null });
       setStep("idle");
     } catch (e: unknown) {
