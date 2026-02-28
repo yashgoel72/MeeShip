@@ -483,18 +483,6 @@ export default function ResultScreen() {
           </div>
         )}
 
-        {/* Streaming progress — show while generating */}
-        {isStreaming && (
-          <div className="mt-6 rounded-3xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
-            <div className="text-lg font-bold text-slate-900">
-              {totalExpected > 0 ? Math.round((completed / totalExpected) * 100) : 0}% Complete
-            </div>
-            <div className="mt-1 text-sm text-slate-500">
-              {streamingProgress.message || 'Generating variants...'}
-            </div>
-          </div>
-        )}
-
         {/* Tips section */}
         <div className="mt-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-4 ring-1 ring-emerald-100">
           <div className="flex items-start gap-3">
